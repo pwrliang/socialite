@@ -28,13 +28,12 @@ import socialite.yarn.ClusterConf;
 public class WorkerNode extends Thread {
     public static final Log L=LogFactory.getLog(WorkerNode.class);
 
-    AtomicBoolean isReady = new AtomicBoolean(false);
-    WorkerConnPool connPool;
-    CmdListener cmdListener;
-    WorkerRequest request;
-    Manager manager;
-    Thread[] recvThreads;
-    FastQueue<RecvTask> recvQ;
+    private AtomicBoolean isReady = new AtomicBoolean(false);
+    private WorkerConnPool connPool;
+    private CmdListener cmdListener;
+    private WorkerRequest request;
+    private Manager manager;
+    private FastQueue<RecvTask> recvQ;
     public WorkerNode() {
         //super("WorkerNode Thread");
         connPool = new WorkerConnPool();
@@ -69,8 +68,8 @@ public class WorkerNode extends Thread {
         if (recvNum < 4) recvNum = 4;
         if (recvNum > 64) recvNum = 64;
 
-        recvThreads = new Thread[recvNum];
-        for (int i=0; i<recvThreads.length; i++) {
+        Thread[] recvThreads = new Thread[recvNum];
+        for (int i = 0; i< recvThreads.length; i++) {
             Receiver recv=new Receiver(recvQ, connPool, manager, cmdListener);
             recvThreads[i] = new Thread(recv, "Receiver #"+i);
             recvThreads[i].start();
@@ -187,7 +186,7 @@ public class WorkerNode extends Thread {
     public static WorkerNode getInst() {
         return theWorkerNode;
     }
-    static void startWorkerNode() {
+    public static void startWorkerNode() {
         theWorkerNode = new WorkerNode();
         try {
             theWorkerNode.serve();

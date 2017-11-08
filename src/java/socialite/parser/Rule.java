@@ -27,19 +27,21 @@ public class Rule implements Externalizable {
 
     transient List<Rule> deps = new ArrayList<>();
     transient List<Rule> usedBy = new ArrayList<>();
-    transient Epoch epoch=null;
+    transient Epoch epoch = null;
 
-    int epochId;
+    private int epochId;
     int id;
     RuleDecl ruleDecl;
-    boolean inScc=false;
-    boolean simpleArrayInit=false;
-    boolean hasPipelined = false;
-    boolean asyncEval = false;
-    Table partitionTable;
-    Predicate partitionPredicate;
+    private boolean inScc = false;
+    private boolean simpleArrayInit = false;
+    private boolean hasPipelined = false;
+    private boolean asyncEval = false;
+    private boolean hasPartitionOpt;
+    private Table partitionTable;//serializable
+    private Predicate partitionPredicate;
 
-    public Rule() { }
+    public Rule() {
+    }
 
     public Rule(RuleDecl _ruleDecl) {
         ruleDecl = _ruleDecl;
@@ -49,42 +51,59 @@ public class Rule implements Externalizable {
     public void setAsyncEval() {
         asyncEval = true;
     }
-    public boolean isAsyncEval() { return asyncEval; }
+
+    public boolean isAsyncEval() {
+        return asyncEval;
+    }
 
     public void setPartitionTable(Table t, Predicate p) {
         partitionTable = t;
         partitionPredicate = p;
     }
+
     public Table getPartitionTable() {
         return partitionTable;
     }
-    public Predicate getPartitionPredicate() { return partitionPredicate; }
+
+    public Predicate getPartitionPredicate() {
+        return partitionPredicate;
+    }
 
     Set<Function> findFunctions() {
         Set<Function> s = new LinkedHashSet<>();
         if (ruleDecl.head.hasFunctionParam()) {
-            for (AggrFunction f:ruleDecl.head.getAggrFuncs()) {
+            for (AggrFunction f : ruleDecl.head.getAggrFuncs()) {
                 s.add(f);
             }
         }
-        for (Object o:ruleDecl.body) {
+        for (Object o : ruleDecl.body) {
             if (!(o instanceof Expr)) continue;
-            Expr e=(Expr)o;
+            Expr e = (Expr) o;
             if (!(e.root instanceof AssignOp)) continue;
-            AssignOp op = (AssignOp)e.root;
+            AssignOp op = (AssignOp) e.root;
             if (op.fromFunction()) {
-                Function f=op.getFunction();
+                Function f = op.getFunction();
                 s.add(f);
             }
         }
         return s;
     }
 
-    public int getEpochId() { return epochId; }
-    public void setInScc() { inScc=true; }
-    public boolean inScc() { return inScc; }
+    public int getEpochId() {
+        return epochId;
+    }
 
-    public boolean isSimpleUpdate() { return ruleDecl.isSimpleUpdate(); }
+    public void setInScc() {
+        inScc = true;
+    }
+
+    public boolean inScc() {
+        return inScc;
+    }
+
+    public boolean isSimpleUpdate() {
+        return ruleDecl.isSimpleUpdate();
+    }
 
     public void copyRuleProperties(Rule r) {
         epochId = r.epochId;
@@ -97,41 +116,48 @@ public class Rule implements Externalizable {
         epoch = _e;
         epochId = epoch.id();
     }
+
     public void recomputeDeps() {
         Iterator<Rule> it = deps.iterator();
-        while(it.hasNext()) {
-            Rule r=it.next();
+        while (it.hasNext()) {
+            Rule r = it.next();
             if (r.epoch != epoch)
                 it.remove();
         }
         it = usedBy.iterator();
-        while(it.hasNext()) {
-            Rule r=it.next();
+        while (it.hasNext()) {
+            Rule r = it.next();
             if (r.epoch != epoch)
                 it.remove();
         }
     }
 
-    public int id() {return id;}
-    public int hashCode() { return id;}
+    public int id() {
+        return id;
+    }
+
+    public int hashCode() {
+        return id;
+    }
 
     public boolean equals(Object o) {
         if (!(o instanceof Rule)) return false;
-        Rule r=(Rule)o;
+        Rule r = (Rule) o;
         return r.ruleDecl.equals(ruleDecl) && getClass().equals(r.getClass());
     }
 
     public List<Expr> getExprs() {
         List<Expr> exprlist = null;
-        for (Object o:getBody()) {
+        for (Object o : getBody()) {
             if (o instanceof Expr) {
-                if (exprlist==null) exprlist = new ArrayList<Expr>();
-                exprlist.add((Expr)o);
+                if (exprlist == null) exprlist = new ArrayList<Expr>();
+                exprlist.add((Expr) o);
             }
         }
-        if (exprlist==null) return Collections.emptyList();
+        if (exprlist == null) return Collections.emptyList();
         else return exprlist;
     }
+
     public Set<Function> getFunctions() {
         return findFunctions();
     }
@@ -143,59 +169,61 @@ public class Rule implements Externalizable {
         Map<Integer, Const> assigns = new HashMap<>(params.length);
         Map<String, Integer> varPos = new HashMap<>();
         int pos = 0;
-        for (Param p: params) {
+        for (Param p : params) {
             if (p instanceof Const) {
-                assigns.put(pos, (Const)p);
+                assigns.put(pos, (Const) p);
             } else {
-                Variable v = (Variable)p;
+                Variable v = (Variable) p;
                 assert v.dontCare || pos > 0;
                 varPos.put(v.name, pos);
             }
             pos++;
         }
-        for (Literal l:getBody()) {
+        for (Literal l : getBody()) {
             if (l instanceof Expr) {
-                Expr e = (Expr)l;
+                Expr e = (Expr) l;
                 if (e.root instanceof AssignOp) {
                     AssignOp op = (AssignOp) e.root;
-                    Variable v = (Variable)op.arg1;
+                    Variable v = (Variable) op.arg1;
                     pos = varPos.get(v.name);
-                    Const _const = (Const)op.arg2;
+                    Const _const = (Const) op.arg2;
                     assigns.put(pos, _const);
                 }
             }
         }
         List<Const> consts = new ArrayList<>();
-        for (int i=1; i<params.length; i++) {
+        for (int i = 1; i < params.length; i++) {
             consts.add(assigns.get(i));
         }
         return consts;
     }
+
     public List<Const> getConsts() {
         SortedSet<Const> _consts = new TreeSet<>();
-        for (Object o:getHead().inputParams()) {
+        for (Object o : getHead().inputParams()) {
             if (o instanceof Const)
-                _consts.add((Const)o);
+                _consts.add((Const) o);
         }
-        for (Object o:getBody()) {
+        for (Object o : getBody()) {
             if (o instanceof Predicate) {
-                Predicate p=(Predicate)o;
-                for (Object x:p.inputParams()) {
+                Predicate p = (Predicate) o;
+                for (Object x : p.inputParams()) {
                     if (x instanceof Const)
-                        _consts.add((Const)x);
+                        _consts.add((Const) x);
                 }
             } else {
-                Expr e = (Expr)o;
+                Expr e = (Expr) o;
                 _consts.addAll(e.getConsts());
             }
         }
         return new ArrayList<Const>(_consts);
     }
+
     public void computeParamTypes(Map<String, Table> tableMap) {
-        Predicate currentP=null;
+        Predicate currentP = null;
         try {
-            for (Predicate p:getBodyP()) {
-                currentP=p;
+            for (Predicate p : getBodyP()) {
+                currentP = p;
                 Table t = tableMap.get(p.name());
                 p.computeVarTypes(t);
             }
@@ -209,61 +237,69 @@ public class Rule implements Externalizable {
     public void setHasPipelinedRule() {
         hasPipelined = true;
     }
+
     public boolean hasPipelinedRules() {
         return hasPipelined;
     }
 
     public Map<String, Variable> getBodyVariableMap() {
         HashMap<String, Variable> map = new HashMap<>();
-        for (Variable v:getBodyVariables()) {
+        for (Variable v : getBodyVariables()) {
             map.put(v.name, v);
         }
         return map;
     }
+
     public Set<Variable> getBodyVariables() {
         Set<Variable> vars = new LinkedHashSet<Variable>();
-        for (Object o:getBody()) {
+        for (Object o : getBody()) {
             if (o instanceof Predicate) {
-                Predicate p = (Predicate)o;
+                Predicate p = (Predicate) o;
                 vars.addAll(p.getVariables());
             } else if (o instanceof Expr) {
-                vars.addAll(((Expr)o).getVariables());
+                vars.addAll(((Expr) o).getVariables());
             } else if (o instanceof Function) {
-                Function f = (Function)o;
+                Function f = (Function) o;
                 vars.addAll(f.getInputVariables());
                 vars.addAll(f.getReturnVars());
             } else {
-                Assert.die("Unexpected type, o["+
-                        o.getClass().getSimpleName()+"]");
+                Assert.die("Unexpected type, o[" +
+                        o.getClass().getSimpleName() + "]");
             }
         }
         return vars;
     }
 
     public boolean hasOnlySimpleAssignExpr() {
-        for (Object o:getBody()) {
+        for (Object o : getBody()) {
             if (!(o instanceof Expr))
                 return false;
-            Expr expr = (Expr)o;
+            Expr expr = (Expr) o;
             if (!(expr.root instanceof AssignOp))
                 return false;
-            AssignOp op=(AssignOp)expr.root;
+            AssignOp op = (AssignOp) expr.root;
             if (op.fromFunction()) // not a simple assignment
                 return false;
         }
         return true;
     }
 
-    public void setSimpleArrayInit() { simpleArrayInit=true; }
-    public boolean isSimpleArrayInit() { return simpleArrayInit; }
+    public void setSimpleArrayInit() {
+        simpleArrayInit = true;
+    }
+
+    public boolean isSimpleArrayInit() {
+        return simpleArrayInit;
+    }
 
     public Set<Variable> getHeadVariables() {
         return ruleDecl.head.getVariables();
     }
 
     public String name() {
-        return ruleDecl.head.name()+"#"+id;
+        return ruleDecl.head.name() + "#" + id;
     }
+
     public Predicate getHead() {
         return ruleDecl.head;
     }
@@ -273,8 +309,8 @@ public class Rule implements Externalizable {
     }
 
     public Predicate firstP() {
-        for (Object o:ruleDecl.body){
-            if (o instanceof Predicate) return (Predicate)o;
+        for (Object o : ruleDecl.body) {
+            if (o instanceof Predicate) return (Predicate) o;
         }
         return null;
     }
@@ -289,8 +325,13 @@ public class Rule implements Externalizable {
         return list;
     }
 
-    public List<Rule> getDependingRules() { return deps; }
-    public List<Rule> getRulesUsingThis() { return usedBy; }
+    public List<Rule> getDependingRules() {
+        return deps;
+    }
+
+    public List<Rule> getRulesUsingThis() {
+        return usedBy;
+    }
 
     public void dependOn(Rule r) {
         if (deps.contains(r)) return;
@@ -305,25 +346,26 @@ public class Rule implements Externalizable {
     public String toString() {
         return ruleDecl.toString();
     }
+
     public String signature(Map<String, Table> tableMap) {
-        String sig="";
-        Predicate p=getHead();
-        Table t=tableMap.get(p.name());
+        String sig = "";
+        Predicate p = getHead();
+        Table t = tableMap.get(p.name());
         sig += p.signature(t.signature()); //sig += p.signature(p.name());
         sig += ":-";
-        boolean first=true;
-        for (Object o:getBody()) {
+        boolean first = true;
+        for (Object o : getBody()) {
             if (!first) sig += ",";
             if (o instanceof Predicate) {
-                Predicate p2=(Predicate)o;
-                t=tableMap.get(((Predicate)o).name());
+                Predicate p2 = (Predicate) o;
+                t = tableMap.get(((Predicate) o).name());
                 sig += p2.signature(t.signature());
                 //sig += p2.signature(p2.name());
             } else {
-                Expr e=(Expr)o;
+                Expr e = (Expr) o;
                 sig += e.sig();
             }
-            first=false;
+            first = false;
         }
         sig += ".";
         return sig;
@@ -339,7 +381,13 @@ public class Rule implements Externalizable {
         inScc = in.readBoolean();
         simpleArrayInit = in.readBoolean();
         hasPipelined = in.readBoolean();
+        hasPartitionOpt = in.readBoolean();
+        if (hasPartitionOpt) {
+            partitionTable = (Table) in.readObject();
+            partitionPredicate = (Predicate) in.readObject();
+        }
     }
+
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
         ruleDecl.writeExternal(out);
@@ -348,5 +396,13 @@ public class Rule implements Externalizable {
         out.writeBoolean(inScc);
         out.writeBoolean(simpleArrayInit);
         out.writeBoolean(hasPipelined);
+        if (partitionTable != null && partitionPredicate != null) {
+            hasPartitionOpt = true;
+        }
+        out.writeBoolean(hasPartitionOpt);
+        if (hasPartitionOpt) {
+            out.writeObject(partitionTable);
+            out.writeObject(partitionPredicate);
+        }
     }
 }

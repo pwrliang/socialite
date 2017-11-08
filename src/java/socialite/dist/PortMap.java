@@ -45,7 +45,7 @@ public abstract class PortMap {
 		throw new RuntimeException("Cannot find enough free ports");
     }
 
-    static int DEFAULT_BASE_PORT=50100;
+   public static final int DEFAULT_BASE_PORT=50100;
     String master="localhost";
     HashMap<String, ServerSocket> reservedSocketMap = new HashMap<String, ServerSocket>();
 
@@ -75,7 +75,9 @@ public abstract class PortMap {
 }
 class MasterPortMap extends PortMap {
 	MasterPortMap() {
-		master = NetUtils.getHostname().split("/")[1];
+//		master = NetUtils.getHostname().split("/")[1];
+        SocialiteAppMasterClient cli = SocialiteAppMasterClient.get();
+        master = cli.getHost();
         int basePort=DEFAULT_BASE_PORT;
         String _basePort = System.getProperty("socialite.port");
 		if (_basePort != null) basePort = Integer.parseInt(_basePort);
@@ -119,10 +121,10 @@ abstract class RemoteMasterPortMap extends PortMap {
 class WorkerPortMap extends RemoteMasterPortMap {
 	WorkerPortMap() {
 		SocialiteAppMasterClient cli = SocialiteAppMasterClient.get();
-		master = cli.getHost();
+		master = cli.getHost();//远程主机只能调用cli.getHost()获取主机名称来连接
         for (String proto: new String[] {"query", "workerReq", "tupleReq"}) {
             masterPortMap.put(proto, cli.getPort(proto));
-        }
+    }
 
         int basePort = DEFAULT_BASE_PORT + new Random().nextInt(97);
         ServerSocket[] reservedServerSockets = reserveServerSocket(basePort, 2);

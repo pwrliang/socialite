@@ -449,6 +449,7 @@ public class QueryListener implements QueryProtocol {
             Method info = WorkerCmd.class.getMethod("info", new Class[] {});
             Object param[] = new Object[0];
             MasterNode.callWorkers(info, param);
+            L.info("call info");
 		} catch (Exception e) {
 			L.error("Exception while calling WorkerCmd.info():" + e);
 		}

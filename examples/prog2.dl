@@ -1,0 +1,11 @@
+Node(int n:0..4).
+Rank(int n:0..4, double rank).
+Rank1(int n:0..4, double rank).
+Edge(int n:0..4, (int t)).
+EdgeCnt(int n:0..4, int cnt).
+Edge(s, t) :- l=$read("C:\\Users\\acer\\IdeaProjects\\socialite\\examples\\prog2_edge.txt"), (s1,s2)=$split(l, "	"), s=$toInt(s1), t=$toInt(s2).
+EdgeCnt(s, $inc(1)) :- Edge(s, t).
+Node(n) :- l=$read("C:\\Users\\acer\\IdeaProjects\\socialite\\examples\\prog2_node.txt"), n=$toInt(l).
+
+Rank(n, r) :- Node(n), r = 0.2 / 4.
+Rank1(y, $dsum(r1)) :- Rank(x, r), Edge(x, y),  EdgeCnt(x, d), r1 = 0.8 * r / d.

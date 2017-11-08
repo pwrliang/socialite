@@ -1,0 +1,32 @@
+CHECK_INTERVAL = 1000
+CHECK_TYPE = VALUE
+CHECK_COND = GE
+CHECK_THRESHOLD = 0.99999
+PRIORITY = FALSE
+SAMPLE_RATE = 0.01
+SCHEDULE_PORTION = 0.2
+SYNC = TRUE
+INIT_SIZE = 200000
+MESSAGE_TABLE_INIT_SIZE = 150000
+MESSAGE_TABLE_UPDATE_THRESHOLD = 5000
+MESSAGE_TABLE_WAITING_INTERVAL = 100
+THREAD_NUM = 64
+#SAVE_PATH = "hdfs://master:9000/expr/PageRank/Google"
+#PRINT_RESULT = TRUE
+RULE:
+Node(int n:0..875712).
+Rank(int n:0..875712, double rank).
+Edge(int n:0..875712, (int t)).
+EdgeCnt(int n:0..875712, int cnt).
+
+Edge(s, t) :- l=$read("hdfs://master:9000/Datasets/PageRank/Google/edge.txt"), (s1,s2)=$split(l, "	"),
+             s=$toInt(s1), t=$toInt(s2).
+
+
+Node(n) :- l=$read("hdfs://master:9000/Datasets/PageRank/Google/node.txt"), n=$toInt(l).
+
+EdgeCnt(s, $inc(1)) :- Edge(s, t).
+Rank(n, r) :- Node(n), r = 0.2 / 875713.
+Rank(y, $dsum(r1)) :- Rank(x, r), Edge(x, y),  EdgeCnt(x, d), r1 = 0.8 * r / d.
+#hdfs://master:9000/Datasets/PageRank/Google/edge.txt
+#hdfs://master:9000/edge_wp.txt

@@ -17,7 +17,7 @@ public class Predicate implements Literal {
 
     String name;
     public SArrayList<Param> params;
-    transient Param[] inputParams; /* contains params -- (for functions, contains args of functions */
+    private transient Param[] inputParams; /* contains params -- (for functions, contains args of functions */
     boolean isNegated;
     int posAtRuleBody;
     boolean isHeadPredicate;
