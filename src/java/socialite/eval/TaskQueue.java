@@ -1,6 +1,9 @@
 package socialite.eval;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import socialite.dist.EvalRefCount;
+import socialite.dist.worker.WorkerNode;
 import socialite.util.ArrayQueue;
 
 import java.util.ArrayList;
@@ -13,19 +16,29 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 enum Priority {
-	Top(0),
+    Top(0),
     High(1),
     Normal(2);
-	private static int numLevels = values().length;
-	public static int numLevels() { return numLevels; }
-	
-	private int value;
-	Priority(int val) { value = val; }
-	public int value() { return value; }
+    private static int numLevels = values().length;
+
+    public static int numLevels() {
+        return numLevels;
+    }
+
+    private int value;
+
+    Priority(int val) {
+        value = val;
+    }
+
+    public int value() {
+        return value;
+    }
 }
+
 public class TaskQueue {
-    static final int MAX_LEVEL=Priority.numLevels();
-    static final int DEFAULT_CAPACITY=256;
+    static final int MAX_LEVEL = Priority.numLevels();
+    static final int DEFAULT_CAPACITY = 256;
 
     final ReentrantLock lock = new ReentrantLock();
     final Condition notFull = lock.newCondition();
@@ -36,7 +49,7 @@ public class TaskQueue {
 
     public TaskQueue() {
         queues = new ArrayList<>(Priority.numLevels());
-        for (int i=0; i<Priority.numLevels(); i++) {
+        for (int i = 0; i < Priority.numLevels(); i++) {
             queues.add(new ArrayQueue<>(DEFAULT_CAPACITY));
         }
         reservedTasks = Collections.synchronizedList(new ArrayList<>());
@@ -46,7 +59,7 @@ public class TaskQueue {
         EvalRefCount.getInst().inc(task.getEpochId());
 
         if (priority.value() >= Priority.numLevels())
-        	priority = Priority.Normal;
+            priority = Priority.Normal;
         ArrayQueue<Task> q = queues.get(priority.value());
         task.setPriority(priority.value());
 
@@ -58,25 +71,26 @@ public class TaskQueue {
             lock.unlock();
         }
     }
+
     public void addAll(Priority priority, Task[] tasks) {
         EvalRefCount evalRefCount = EvalRefCount.getInst();
-        int taskCount=0, epochId=-1;
-        for (Task t:tasks) {
-            if (t==null) continue;
-            assert epochId==-1 || epochId == t.getEpochId();
+        int taskCount = 0, epochId = -1;
+        for (Task t : tasks) {
+            if (t == null) continue;
+            assert epochId == -1 || epochId == t.getEpochId();
             epochId = t.getEpochId();
             taskCount++;
         }
-        if (taskCount>0) evalRefCount.incBy(epochId, taskCount);
+        if (taskCount > 0) evalRefCount.incBy(epochId, taskCount);
 
-        if (priority.value() >= Priority.numLevels()) 
-        	priority = Priority.Normal;
+        if (priority.value() >= Priority.numLevels())
+            priority = Priority.Normal;
         ArrayQueue<Task> q = queues.get(priority.value());
 
         lock.lock();
         try {
-            for (Task t:tasks) {
-                if (t==null) continue;
+            for (Task t : tasks) {
+                if (t == null) continue;
                 t.setPriority(priority.value());
                 q.add(t);
             }
@@ -89,7 +103,7 @@ public class TaskQueue {
     public void empty() {
         lock.lock();
         try {
-            for (ArrayQueue<Task> q:queues) {
+            for (ArrayQueue<Task> q : queues) {
                 q.clear();
             }
             notFull.signal();
@@ -101,7 +115,7 @@ public class TaskQueue {
     public boolean isEmpty() {
         lock.lock();
         try {
-            for (ArrayQueue<Task> q:queues) {
+            for (ArrayQueue<Task> q : queues) {
                 if (!q.isEmpty()) return false;
             }
             return true;
@@ -109,62 +123,76 @@ public class TaskQueue {
             lock.unlock();
         }
     }
-    
+
     Random r = new Random();
+
     Task stealTask(int level) {
-    	TaskQueue[] workerQueues = Worker.getWorkerQueues();
-    	int workerNum = workerQueues.length;
-    	int workerId = r.nextInt(workerNum);
-    	Task task = null;
-    	for (int i=0; i<workerNum; i++) {
-    		TaskQueue workerQueue = workerQueues[workerId];
-    		ArrayQueue<Task> queue = workerQueue.queues.get(level);
-    		if (!queue.isEmpty()) {
-    			if (workerQueue.lock.tryLock()) {
-    				try { task = queue.get(); } 
-        			finally { workerQueue.lock.unlock(); }
-        			if (task != null) 
-        				return task;
-    			}
-    		}
-    		workerId = (workerId+1) % workerNum;
-    	}
-    	return null;
+        TaskQueue[] workerQueues = Worker.getWorkerQueues();
+        int workerNum = workerQueues.length;
+        int workerId = r.nextInt(workerNum);
+        Task task = null;
+        for (int i = 0; i < workerNum; i++) {
+            TaskQueue workerQueue = workerQueues[workerId];
+            ArrayQueue<Task> queue = workerQueue.queues.get(level);
+            if (!queue.isEmpty()) {
+                if (workerQueue.lock.tryLock()) {
+                    try {
+                        task = queue.get();
+                    } finally {
+                        workerQueue.lock.unlock();
+                    }
+                    if (task != null)
+                        return task;
+                }
+            }
+            workerId = (workerId + 1) % workerNum;
+        }
+        return null;
     }
+
     Task reserveReally() throws InterruptedException {
-    	return reserveReally(Priority.numLevels());
+        return reserveReally(Priority.numLevels());
     }
+
     Task reserveReally(int threshold) throws InterruptedException {
         Task t;
         lock.lock();
         try {
             while (true) {
-            	for (int i = Priority.Top.value(); i < threshold; i++) {
-                    ArrayQueue<Task> q=queues.get(i);
+                for (int i = Priority.Top.value(); i < threshold; i++) {
+                    ArrayQueue<Task> q = queues.get(i);
                     t = q.get();
                     if (t == null) {
-                    	lock.unlock();
-                    	try { t = stealTask(i); }
-                    	finally { lock.lock(); }
-                    	if (t == null) continue;
+                        lock.unlock();
+                        try {
+                            t = stealTask(i);
+                        } finally {
+                            lock.lock();
+                        }
+                        if (t == null) continue;
                     }
                     reservedTasks.add(t);
                     return t;
-                }                
+                }
                 notEmpty.await(2, TimeUnit.MILLISECONDS);
             }
         } finally {
             lock.unlock();
         }
     }
+
     public Task reserve() throws InterruptedException {
         return reserveReally();
     }
+
     public Task reservePrioritized() throws InterruptedException {
         return reserveReally(Priority.High.value());
     }
 
+    public static final Log L = LogFactory.getLog(TaskQueue.class);
+
     public void pop(Task task) {
+        L.info("call dec in TaskQueue.pop");
         EvalRefCount.getInst().dec(task.getEpochId());
         reservedTasks.remove(task);
     }

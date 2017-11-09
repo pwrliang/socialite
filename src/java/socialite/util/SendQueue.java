@@ -15,6 +15,7 @@ import org.apache.commons.logging.LogFactory;
 
 import socialite.dist.EvalRefCount;
 import socialite.dist.msg.WorkerMessage;
+import socialite.dist.worker.WorkerNode;
 import socialite.eval.EvalWithTable;
 
 public class SendQueue {
@@ -73,8 +74,8 @@ public class SendQueue {
         finally { lock.unlock(); }
 		return msg;
 	}
-
 	public void pop(WorkerMessage m) {
+		L.info("call dec in SendQueue.pop");
         EvalRefCount.getInst().dec(m.getEpochId());
         reserved.remove(m);
 	}

@@ -235,9 +235,9 @@ public class TmpTablePool {
                 }
 
                 long freeMem = freeMemory();
-                if (freeMem > 1024 * 1024 * (1024+1024+512)) { break;}
-                if (urgency >= 1 && freeMem > 1024 * 1024 * (1024+512+256)) { break; }
-                if (urgency >= 2 && freeMem > 1024 * 1024 * (1024+512)) { break; }
+                if (freeMem > 1024.0 * 1024 * (1024+1024+512)) { break;}
+                if (urgency >= 1 && freeMem > 1024.0 * 1024 * (1024+512+256)) { break; }
+                if (urgency >= 2 && freeMem > 1024.0 * 1024 * (1024+512)) { break; }
                 if (tryCnt > maxTry) { break;}
                 synchronized (q) {
                     if (urgency >= 1 && !urgencyWaitIncremented) {
@@ -289,7 +289,7 @@ public class TmpTablePool {
 		synchronized(q) {
 			if (q.size() < globalListSize) {		
 				inst.clear();
-				q.add(new WeakReference<TmpTableInst>(inst));
+				q.add(new WeakReference<>(inst));
 			} else {
 				forget(inst);
 			}
@@ -371,9 +371,9 @@ public class TmpTablePool {
                 }
 
                 long freeMem = freeMemory();
-                if (freeMem > 1024 * 1024 * (1024+1024+512)) { break;}
-                if (urgency >= 1 && freeMem > 1024 * 1024 * (1024+512+256)) { break; }
-                if (urgency >= 2 && freeMem > 1024 * 1024 * (1024+512)) { break; }
+                if (freeMem > 1024.0 * 1024 * (1024+1024+512)) { break;}
+                if (urgency >= 1 && freeMem > 1024.0 * 1024 * (1024+512+256)) { break; }
+                if (urgency >= 2 && freeMem > 1024.0 * 1024 * (1024+512)) { break; }
                 if (tryCnt > maxTry) { break; }
                 synchronized (q) {
                     if (urgency >= 1 && !urgencyWaitIncremented) {

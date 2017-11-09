@@ -37,8 +37,8 @@ public class EvalParallel extends Eval {
         runtime = _runtime;
         epoch = _epoch;
 
-        if (epoch.getRules().size()>0) {
-            Rule r=epoch.getRules().get(0);
+        if (epoch.getRules().size() > 0) {
+            Rule r = epoch.getRules().get(0);
             ruleMap = runtime.getRuleMap(r.id());
         }
         partitionMap = runtime.getPartitionMap();
@@ -88,70 +88,79 @@ public class EvalParallel extends Eval {
     }
 
     void clearTable(final int tid) {
-        if (tid<0) return;
+        if (tid < 0) return;
         final TableInst[] tableArray = tableRegistry.getTableInstArray(tid);
-        if (tableArray==null) return;
+        if (tableArray == null) return;
 
         startInitThreads();
         final int numThreads = ClusterConf.get().getNumWorkerThreads();
         class ParClear implements Runnable {
             int id;
-            ParClear(int _id) { id=_id; }
+
+            ParClear(int _id) {
+                id = _id;
+            }
+
             public void run() {
-                int from = (tableArray.length + numThreads -1)/ numThreads*id;
-                int to = (tableArray.length + numThreads -1)/ numThreads*(id+1);
+                int from = (tableArray.length + numThreads - 1) / numThreads * id;
+                int to = (tableArray.length + numThreads - 1) / numThreads * (id + 1);
                 if (from >= tableArray.length) {
                     return;
                 }
-                if (to > tableArray.length) to=tableArray.length;
-                for (int i=from; i<to; i++) {
+                if (to > tableArray.length) to = tableArray.length;
+                for (int i = from; i < to; i++) {
                     tableArray[i].clear();
                 }
             }
         }
-        for (int i = 0; i< numThreads - 1; i++) {
+        for (int i = 0; i < numThreads - 1; i++) {
             parallelInit(i, new ParClear(i));
         }
 
         new ParClear(numThreads - 1).run();
         barrierWait();
     }
-    void dropTable(int tid) {
-        if (tid<0) return;
-        TableInst[] tableArray = tableRegistry.getTableInstArray(tid);
-        if (tableArray==null) return;
 
-        for (int i=0; i<tableArray.length; i++)
+    void dropTable(int tid) {
+        if (tid < 0) return;
+        TableInst[] tableArray = tableRegistry.getTableInstArray(tid);
+        if (tableArray == null) return;
+
+        for (int i = 0; i < tableArray.length; i++)
             tableArray[i] = null;
     }
 
     void enableLock(int tableid) {
         TableInst[] tableArray = tableRegistry.getTableInstArray(tableid);
-        for (TableInst t:tableArray) {
+        for (TableInst t : tableArray) {
             if (t != null) {
                 t.enableInternalLock(true);
             }
         }
     }
+
     void disableLock(int tableid) {
         TableInst[] tableArray = tableRegistry.getTableInstArray(tableid);
-        for (TableInst t:tableArray) {
+        for (TableInst t : tableArray) {
             if (t != null) {
                 t.disableInternalLock();
             }
         }
     }
+
     public void init() {
-        for (Rule r:epoch.getRules()) {
+        for (Rule r : epoch.getRules()) {
             Table t = tableMap.get(r.getHead().name());
-            if (t instanceof GeneratedT) { continue; }
+            if (t instanceof GeneratedT) {
+                continue;
+            }
             if (r.isAsyncEval()) {
                 disableLock(t.id());
             } else {
                 enableLock(t.id());
             }
         }
-        for (TableStmt s:epoch.tableStmts()) {
+        for (TableStmt s : epoch.tableStmts()) {
             if (s instanceof ClearTable) {
                 clearTable(s.id());
             } else {
@@ -159,10 +168,10 @@ public class EvalParallel extends Eval {
                 dropTable(s.id());
             }
         }
-        for (Pair<Table, List<Const>> init: epoch.getInitRuleInfo()) {
+        for (Pair<Table, List<Const>> init : epoch.getInitRuleInfo()) {
             List<Const> consts = init.getRight();
             List<Object> initvals = new ArrayList<>(init.getRight().size());
-            for (int i=0; i<consts.size(); i++) {
+            for (int i = 0; i < consts.size(); i++) {
                 initvals.add(consts.get(i).val);
             }
             initTable(init.getLeft(), initvals);
@@ -175,28 +184,30 @@ public class EvalParallel extends Eval {
 
     void initTable(Table t, List<Object> consts) {
         final TableInst[] tableArray = tableRegistry.getTableInstArray(t.id());
-        if (tableArray==null) return;
+        if (tableArray == null) return;
 
         startInitThreads();
         final int numThreads = ClusterConf.get().getNumWorkerThreads();
         class ParInit implements Runnable {
             int id;
             List<Object> args;
+
             ParInit(int _id, List<Object> _args) {
                 id = _id;
                 args = _args;
             }
+
             public void run() {
-                int from = (tableArray.length + numThreads - 1)/numThreads*id;
-                int to = (tableArray.length + numThreads - 1)/numThreads*(id+1);
-                if (to > tableArray.length) to=tableArray.length;
-                for (int i=from; i<to; i++) {
+                int from = (tableArray.length + numThreads - 1) / numThreads * id;
+                int to = (tableArray.length + numThreads - 1) / numThreads * (id + 1);
+                if (to > tableArray.length) to = tableArray.length;
+                for (int i = from; i < to; i++) {
                     tableArray[i].init(args);
                 }
             }
         }
 
-        for (int i=0; i<numThreads-1; i++) {
+        for (int i = 0; i < numThreads - 1; i++) {
             parallelInit(i, new ParInit(i, consts));
         }
         new ParInit(numThreads - 1, consts).run();
@@ -212,37 +223,47 @@ public class EvalParallel extends Eval {
     public void run() {
         init();
         boolean issued = runReally();
-        if (issued) { waitForEpochDone(); }
+        if (issued) {
+            waitForEpochDone();
+        }
         finish();
     }
+
     void waitForEpochDone() {
         try {
             runtime.waitForIdle(epoch.id());
-        } catch (InterruptedException e) { }
+        } catch (InterruptedException e) {
+        }
     }
+
     boolean runReally() {
-        boolean issued=false;
+        boolean issued = false;
         Iterator<RuleComp> it = epoch.topologicalOrder();
 
         EvalRefCount.getInst().inc(epoch.id());
-        try {
+            try {
             while (it.hasNext()) {
                 RuleComp rc = it.next();
+                L.info("eval " + rc);
                 issued |= eval(rc);
             }
         } finally {
+            L.info("eval done");
             EvalRefCount.getInst().dec(epoch.id());
             return issued;
         }
     }
 
     boolean eval(RuleComp rc) {
-        boolean issued=false;
-        for (Rule r:rc.getStartingRules()) {
+        boolean issued = false;
+        for (Rule r : rc.getStartingRules()) {
             if (r != null) {
-                assert r.getEpochId()==epoch.id();
-                try { manager.addCmd(new EvalCommand(epoch.id(), r.id())); }
-                catch (InterruptedException e) { break; }
+                assert r.getEpochId() == epoch.id();
+                try {
+                    manager.addCmd(new EvalCommand(epoch.id(), r.id()));
+                } catch (InterruptedException e) {
+                    break;
+                }
                 issued = true;
             }
         }
@@ -251,12 +272,13 @@ public class EvalParallel extends Eval {
 
     public String toString() {
         String str = "Eval-parallel:";
-		/*for (Rule r : epoch.getRules()) {
+        /*for (Rule r : epoch.getRules()) {
 			str += r;
 		}*/
         return str;
     }
 }
+
 class InitThread extends Thread {
     static final Log L = LogFactory.getLog(EvalParallel.class);
 
@@ -273,7 +295,9 @@ class InitThread extends Thread {
             try {
                 waitForTask();
                 r.run();
-                if (interrupted()) { break; }
+                if (interrupted()) {
+                    break;
+                }
                 barrier();
             } catch (InterruptedException ie) {
                 break;
@@ -293,7 +317,10 @@ class InitThread extends Thread {
 
     void barrier() throws InterruptedException {
         r = null;
-        try { barrier.await(); }
-        catch (BrokenBarrierException e) { throw new SociaLiteException(e); }
+        try {
+            barrier.await();
+        } catch (BrokenBarrierException e) {
+            throw new SociaLiteException(e);
+        }
     }
 }
