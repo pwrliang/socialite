@@ -40,10 +40,11 @@ public class TablePartitionMap {
         }
     }
     public void addTable(Table t) {
-        assert !(t instanceof GeneratedT) && partitionInfo.get(t.id()) == null;
         if (t.id() >= partitionInfo.size()) {
             addNullPartitionInfo(t.id());
         }
+//		assert !(t instanceof GeneratedT) ;
+        assert partitionInfo.get(t.id()) == null;
         partitionInfo.set(t.id(), PartitionInfo.create(this, t));
     }
 

@@ -147,6 +147,7 @@ public class WorkerNode extends Thread {
         String host = NetUtils.getHostname().split("/")[1];
         int cmdPort = PortMap.worker().getPort("workerCmd");
         int dataPort = PortMap.worker().getPort("data");
+        System.out.println(host);
         request.register(host, cmdPort, dataPort);
     }
 

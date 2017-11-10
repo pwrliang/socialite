@@ -16,10 +16,11 @@ public class DistTablePartitionMap extends TablePartitionMap {
 	}
 	@Override
 	public void addTable(Table t) {
-        assert !(t instanceof GeneratedT) && partitionInfo.get(t.id()) == null;
         if (t.id() >= partitionInfo.size()) {
             addNullPartitionInfo(t.id());
         }
+//		assert !(t instanceof GeneratedT) ;
+        assert partitionInfo.get(t.id()) == null;
 		partitionInfo.add(t.id(), DistPartitionInfo.create(this, t));
 	}
 	@Override

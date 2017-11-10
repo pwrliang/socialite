@@ -34,6 +34,10 @@ public class PartitionNodeMap {
         }
     }
 
+    /***
+     *
+     * @return an array, partitionIdx is index, myIdx is content
+     */
     int[] map() {
         return (int[])partitionIdxToNode;
     }
@@ -42,6 +46,11 @@ public class PartitionNodeMap {
         return map()[partition];
     }
 
+    /***
+     *
+     * @param node myIdx
+     * @return partitionIdx array
+     */
     public int[] partitions(int node) {
         int[] p = new int[map().length];
         int idx = 0;
