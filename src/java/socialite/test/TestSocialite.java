@@ -76,6 +76,12 @@ public class TestSocialite {
 //        }, 0);
         clientEngine.run("Edge(int n:0..4, (int t)).\n"  +
                 "Edge(s, t) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n" );
+        clientEngine.run("?- Edge(n,t).", new QueryVisitor() {
+            @Override
+            public boolean visit(Tuple _0) {
+                return super.visit(_0);
+            }
+        },3);
         L.info(status.getMemStatus());
         //defaultPartitionNum=threadnum * 8 -> powerOf2
         //totalPartitionNum = defaultPartitionNum * maxNumWorkers
