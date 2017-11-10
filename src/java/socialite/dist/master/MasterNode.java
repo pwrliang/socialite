@@ -100,7 +100,9 @@ class ParallelRPC implements Runnable {
 
 public class MasterNode {
     public static final Log L=LogFactory.getLog(MasterNode.class);
-
+    public synchronized boolean allOneLine() {
+        return workerMap.size() == expectedWorkerNum;
+    }
     static MasterNode theInstance=null;
     public static MasterNode create() {
         if (theInstance != null) {
