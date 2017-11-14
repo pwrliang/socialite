@@ -154,6 +154,8 @@ public class EvalParallel extends Eval {
             if (t instanceof GeneratedT) {
                 continue;
             }
+            //形如Node:- read(xxxx)可以异步执行，无须内部锁
+            //TODO 待review
             if (r.isAsyncEval()) {
                 disableLock(t.id());
             } else {
@@ -202,7 +204,7 @@ public class EvalParallel extends Eval {
                 int to = (tableArray.length + numThreads - 1) / numThreads * (id + 1);
                 if (to > tableArray.length) to = tableArray.length;
                 for (int i = from; i < to; i++) {
-                    tableArray[i].init(args);//初始化filled字段
+                    tableArray[i].init(args);
                 }
             }
         }

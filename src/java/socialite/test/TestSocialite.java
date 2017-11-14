@@ -2,6 +2,7 @@ package socialite.test;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.net.NetUtils;
 import socialite.dist.Status;
 import socialite.dist.master.MasterNode;
 import socialite.dist.worker.WorkerNode;
@@ -41,13 +42,14 @@ public class TestSocialite {
 //                return super.visit(_0);
 //            }
 //        });
-        localEngine.run("Edge(int n:0..4, (int t)).\n"  +
-                "Edge(s, t) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n" );
+        localEngine.run("Edge(int n:0..4, (int t)).\n" +
+                "Edge(s, t) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n");
 
         localEngine.shutdown();
     }
 
     static void distTest() throws InterruptedException {
+//        System.out.println(NetUtils.getHostname().split("/")[1]);
         MasterNode.startMasterNode();
         L.info("OK");
         while (!MasterNode.getInstance().allOneLine())
@@ -57,14 +59,14 @@ public class TestSocialite {
         Status status = clientEngine.status();
 //        clientEngine.run("Edge(int x:0..5, int y).");
 //        clientEngine.run("Edge1(int x, int y).");
-//        String pagerank = "Node(int n:0..3).\n" +
-//                "Rank(int n:0..3, double rank).\n" +
-//                "Rank1(int n:0..3, double rank).\n" +
-//                "Edge(int n:0..3, (int t)).\n" +
-//                "EdgeCnt(int n:0..3, int cnt).\n" +
-//                "Edge(s, t) :- l=$read(\"E:\\\\Liang_Projects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n" +
+//        String pagerank = "Node(int n).\n" +
+//                "Rank(int n:0..4, double rank).\n" +
+//                "Rank1(int n:0..4, double rank).\n" +
+//                "Edge(int n:0..4, (int t)).\n" +
+//                "EdgeCnt(int n:0..4, int cnt).\n" +
+//                "Edge(s, t) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n" +
 //                "EdgeCnt(s, $inc(1)) :- Edge(s, t).\n" +
-//                "Node(n) :- l=$read(\"E:\\\\Liang_Projects\\\\socialite\\\\examples\\\\prog2_node.txt\"), n=$toInt(l).\n" +
+//                "Node(n) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_node.txt\"), n=$toInt(l).\n" +
 //                "Rank(n, r) :- Node(n), r = 0.2 / 4.\n" +
 //                "Rank1(y, $sum(r1)) :- Rank(x, r), Edge(x, y),  EdgeCnt(x, d), r1 = 0.8 * r / d.";
 //        clientEngine.run(pagerank);
@@ -76,21 +78,28 @@ public class TestSocialite {
 //        }, 0);
 
 //        clientEngine.run("Edge(int n:0..3, (int t)).\n" +
-//                "Edge(s, t) :- l=$read(\"E:\\\\Liang_Projects\\\\socialite\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n");
+//                "Edge(s, t) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n");
 //        clientEngine.run("?- Edge(n, t).", new QueryVisitor() {
 //            @Override
 //            public boolean visit(Tuple _0) {
 //                return super.visit(_0);
 //            }
 //        }, 0);
-
-        clientEngine.run("Node(int n). \nNode(n) :- l=$read(\"E:\\\\Liang_Projects\\\\socialite\\\\examples\\\\prog2_node.txt\"), n=$toInt(l).\n");
-        clientEngine.run("?- Node(n).", new QueryVisitor() {
+        clientEngine.run("Edge(int n:0..3, (int t)).\n" +
+                "Edge(s, t) :- l=$read(\"E:\\\\Liang_Projects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n");
+        clientEngine.run("?- Edge(n, t).", new QueryVisitor() {
             @Override
-            public boolean visit(int _0) {
+            public boolean visit(Tuple _0) {
                 return super.visit(_0);
             }
-        },0);
+        }, 0);
+//        clientEngine.run("Node(int n). \nNode(n) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_node.txt\"), n=$toInt(l).\n");
+//        clientEngine.run("?- Node(n).", new QueryVisitor() {
+//            @Override
+//            public boolean visit(int _0) {
+//                return super.visit(_0);
+//            }
+//        },0);
         L.info(status.getMemStatus());
         //defaultPartitionNum=threadnum * 8 -> powerOf2
         //totalPartitionNum = defaultPartitionNum * maxNumWorkers

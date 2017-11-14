@@ -381,6 +381,7 @@ public class Rule implements Externalizable {
         inScc = in.readBoolean();
         simpleArrayInit = in.readBoolean();
         hasPipelined = in.readBoolean();
+        asyncEval = in.readBoolean();
         hasPartitionOpt = in.readBoolean();
         if (hasPartitionOpt) {
             partitionTable = (Table) in.readObject();
@@ -396,6 +397,7 @@ public class Rule implements Externalizable {
         out.writeBoolean(inScc);
         out.writeBoolean(simpleArrayInit);
         out.writeBoolean(hasPipelined);
+        out.writeBoolean(asyncEval);
         if (partitionTable != null && partitionPredicate != null) {
             hasPartitionOpt = true;
         }
