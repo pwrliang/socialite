@@ -44,12 +44,12 @@ public class SSSP {
             en.run(init);
             stopWatch.stop();
             L.info("elapsed " + stopWatch.getTime());
-            en.run("?- Path(n, dist, x).", new QueryVisitor() {
-                @Override
-                public boolean visit(Tuple _0) {
-                    return super.visit(_0);
-                }
-            });
+//            en.run("?- Path(n, dist, x).", new QueryVisitor() {
+//                @Override
+//                public boolean visit(Tuple _0) {
+//                    return super.visit(_0);
+//                }
+//            });
             en.shutdown();
         } else if (args[0].equals("dist")) {
             STGroup stg = new MySTGroupFile(SSSP.class.getResource("SSSP1.stg"),
@@ -78,8 +78,17 @@ public class SSSP {
                 st.remove("i");
                 en.run(iterCode);
             }
+
+
             System.out.println("recursive statement:" + (System.currentTimeMillis() - start));
+//            en.run("?- Path(n, 0, dist).", new QueryVisitor() {
+//                @Override
+//                public boolean visit(Tuple _0) {
+//                    return super.visit(_0);
+//                }
+//            }, 0);
             en.shutdown();
         }
+        System.exit(0);
     }
 }
