@@ -202,7 +202,7 @@ public class EvalParallel extends Eval {
                 int to = (tableArray.length + numThreads - 1) / numThreads * (id + 1);
                 if (to > tableArray.length) to = tableArray.length;
                 for (int i = from; i < to; i++) {
-                    tableArray[i].init(args);
+                    tableArray[i].init(args);//初始化filled字段
                 }
             }
         }

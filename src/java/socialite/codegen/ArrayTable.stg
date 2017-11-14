@@ -36,6 +36,7 @@ package socialite.tables;
         } else {
             lockStatus = LockStatus.enabled;
         }
+        System.out.println("lock status: "+lockStatus);
     }
     static void _disableInternalLock() {
         lockStatus = LockStatus.disabled;
@@ -125,14 +126,17 @@ package socialite.tables;
         while (true) {
             locked = filled.compareAndSet(i, (byte)0, (byte)(emptyMarker + marker));
             if (locked) { break; }
-        <if(gbColumns)>
+        <!if(gbColumns)!>
             locked = filled.compareAndSet(i, (byte)1, (byte)marker);
             if (locked) { break; }
-        <else>
+        <!else!>
+            /*
             if (filled.get(i) != 0) {
+                //try fix bugs for Node(int n:0..x)
                 throw new SociaLiteException("Entry starting with "+(i+base)+" already exists");
             }
-        <endif>
+            */
+        <!endif!>
             if (count++ > maxTry) {
                 count = 0;
                 Thread.yield();
