@@ -50,8 +50,8 @@ public class SocialiteAppMasterClient {
 //        if (addr == null) { L.error("Cannot find master-node hostname"); }
 //        return addr.get("host");
 //        return NetUtils.getHostname().split("/")[1];
-//        return System.getProperty("socialite.master", "localhost");
-        return NetUtils.getHostname().split("/")[1];
+        return System.getProperty("socialite.master", "localhost");
+//        return NetUtils.getHostname().split("/")[1];
     }
 
     public int getPort(String proto) {

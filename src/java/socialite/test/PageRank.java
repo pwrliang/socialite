@@ -23,7 +23,7 @@ public class PageRank {
     // 0       1             2       3
     //single node-count edge-path   iter-num
     //dist   node-count   edge-path iter-num
-    //-Dsocialite.worker.num=2 -ea -Xmx512M -Dlog4j.configuration=file:E:\Liang_Projects\socialite\conf\log4j.properties -Dsocialite.output.dir=gen
+    //-Dsocialite.worker.num=2 -ea -Xmx512M -Dlog4j.configuration=file:/home/gengl/Desktop/gengl/socialite/conf/log4j.properties -Dsocialite.output.dir=gen
     public static void main(String[] args) throws FileNotFoundException, InterruptedException {
         STGroup stg = new MySTGroupFile(PageRank.class.getResource("PageRank.stg"),
                 "UTF-8", '<', '>');

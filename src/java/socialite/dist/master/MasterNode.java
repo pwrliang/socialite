@@ -1,18 +1,12 @@
 package socialite.dist.master;
 
-import java.io.*;
-import java.lang.reflect.Method;
-import java.net.*;
-import java.util.*;
-
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.*;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.RPC;
-
 import socialite.dist.worker.WorkerCmd;
 import socialite.resource.SRuntimeMaster;
 import socialite.resource.WorkerAddrMap;
@@ -22,6 +16,13 @@ import socialite.util.TextArrayWritable;
 import socialite.util.UnresolvedSocketAddr;
 import socialite.yarn.ClusterConf;
 
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;

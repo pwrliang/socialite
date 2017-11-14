@@ -7,31 +7,19 @@ BIN=`cd "$BIN"; pwd`
 function start-node(){
     ${BIN}/kill-all.sh ${MACHINES}
 
-    MASTER_CMD="java -Xmx28G"
-    MASTER_CMD+=" -Dsocialite.output.dir=${SOCIALITE_PREFIX}/gen"
-    MASTER_CMD+=" -Dsocialite.port=50100"
-    MASTER_CMD+=" -Dsocialite.master=${MASTER_HOST}"
-    MASTER_CMD+=" -Dlog4j.configuration=file:${SOCIALITE_PREFIX}/conf/log4j.properties"
-    MASTER_CMD+=" -cp $1:${JAR_PATH}"
-    MASTER_CMD+=" socialite.dist.master.MasterNode"
-
-    WORKER_CMD="java -Xmx6G"
+    WORKER_CMD="java -Xmx6G -ea"
+    WORKER_CMD+=" -Dsocialite.worker.num=$((MACHINES_NUM-1))"
     WORKER_CMD+=" -Dsocialite.output.dir=${SOCIALITE_PREFIX}/gen"
-    WORKER_CMD+=" -Dsocialite.port=50100"
     WORKER_CMD+=" -Dsocialite.master=${MASTER_HOST}"
     WORKER_CMD+=" -Dlog4j.configuration=file:${SOCIALITE_PREFIX}/conf/log4j.properties"
     WORKER_CMD+=" -cp $1:${JAR_PATH} socialite.dist.worker.WorkerNode"
-    # start master
-    nohup ${MASTER_CMD} >> ${SOCIALITE_PREFIX}/logs/master.log 2>&1 &
 
     while IFS='' read -r line || [[ -n "$line" ]]; do
         # if master as worker, start worker locally
-        if [ ${line} == ${MASTER_HOST} ]; then
-            nohup ${WORKER_CMD} >> ${SOCIALITE_PREFIX}/logs/master.log 2>&1 &
-        else
+        if [ ${line} != ${MASTER_HOST} ]; then
             ssh -n $USER@${line} "sh -c 'cd $SOCIALITE_PREFIX; nohup $WORKER_CMD > /dev/null 2>&1 &'"
         fi
-    done < "${SOCIALITE_PREFIX}/conf/slaves"
+    done < "${SOCIALITE_PREFIX}/conf/machines"
 }
 
 if [ "$#" != "1" ] || ([ "$1" != "-copy-jar" ] && [ "$1" != "-copy-classes" ]); then
