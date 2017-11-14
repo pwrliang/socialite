@@ -33,12 +33,14 @@ class Call {
     public Object obj;
     public Object[] params;
     public ReturnHandler handler;
+
     Call(Method _m, Object _obj, Object[] _params, ReturnHandler _handler) {
         m = _m;
         obj = _obj;
         params = _params;
         handler = _handler;
     }
+
     public void call() {
         try {
             Object ret = m.invoke(obj, params);
@@ -48,6 +50,7 @@ class Call {
         }
     }
 }
+
 class ReturnHandler {
     private ArrayList<Object> retvals;
     private String errorMsg;
@@ -60,14 +63,18 @@ class ReturnHandler {
 
     public synchronized void except(Throwable t) {
         countInvocation();
-        if (errorMsg==null) errorMsg = "";
+        if (errorMsg == null) errorMsg = "";
         errorMsg += ExceptionUtils.getStackTrace(t);
 
     }
+
     void countInvocation() {
         int count = invokeCountDown.decrementAndGet();
-        if (count==0) { notify(); }
+        if (count == 0) {
+            notify();
+        }
     }
+
     public synchronized void waitForDone() throws InterruptedException {
         wait();
     }
@@ -75,35 +82,49 @@ class ReturnHandler {
     public synchronized void addReturn(Object val) {
         countInvocation();
 
-        if (val!=null) retvals.add(val);
+        if (val != null) retvals.add(val);
     }
-    public synchronized Object[] getReturns() { return retvals.toArray(); }
-    public synchronized boolean hasError() { return errorMsg!=null; }
-    public synchronized String getErrorMsg() { return errorMsg; }
+
+    public synchronized Object[] getReturns() {
+        return retvals.toArray();
+    }
+
+    public synchronized boolean hasError() {
+        return errorMsg != null;
+    }
+
+    public synchronized String getErrorMsg() {
+        return errorMsg;
+    }
 }
 
 class ParallelRPC implements Runnable {
     ArrayBlockingQueue<Call> queue;
+
     public ParallelRPC(ArrayBlockingQueue<Call> _queue) {
         queue = _queue;
     }
-    public void run()  {
+
+    public void run() {
         while (true) {
             Call call = null;
             try {
                 call = queue.poll(100, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) { break; }
-            if (call != null) { call.call(); }
+            } catch (InterruptedException e) {
+                break;
+            }
+            if (call != null) {
+                call.call();
+            }
         }
     }
 }
 
 public class MasterNode {
-    public static final Log L=LogFactory.getLog(MasterNode.class);
-    public synchronized boolean allOneLine() {
-        return workerMap.size() == expectedWorkerNum;
-    }
-    static MasterNode theInstance=null;
+    public static final Log L = LogFactory.getLog(MasterNode.class);
+
+    private static MasterNode theInstance = null;
+
     public static MasterNode create() {
         if (theInstance != null) {
             throw new AssertionError("MasterNode is already created");
@@ -111,16 +132,20 @@ public class MasterNode {
         theInstance = new MasterNode();
         return theInstance;
     }
-    public static MasterNode getInstance() { return theInstance; }
 
-    static ArrayBlockingQueue<Call> cmdQueue;
+    public static MasterNode getInstance() {
+        return theInstance;
+    }
+
+    private static ArrayBlockingQueue<Call> cmdQueue;
+
     static {
-        int cmdIssueThreadNum = ClusterConf.get().getNumWorkers()/4;
+        int cmdIssueThreadNum = ClusterConf.get().getNumWorkers() / 4;
         cmdIssueThreadNum = Math.max(cmdIssueThreadNum, 2);
         cmdIssueThreadNum = Math.min(cmdIssueThreadNum, 8);
         cmdQueue = new ArrayBlockingQueue<Call>(cmdIssueThreadNum * 128);
-        for (int i = 0; i< cmdIssueThreadNum; i++) {
-            Thread t = new Thread(new ParallelRPC(cmdQueue), "RPC Thread #"+i);
+        for (int i = 0; i < cmdIssueThreadNum; i++) {
+            Thread t = new Thread(new ParallelRPC(cmdQueue), "RPC Thread #" + i);
             t.setDaemon(true);
             t.start();
         }
@@ -129,8 +154,8 @@ public class MasterNode {
     public static Object[] callWorkers(Method m, Object[][] params) throws InterruptedException {
         Collection<WorkerCmd> workerCmds = getInstance().getWorkerCmdMap().values();
         ReturnHandler handler = new ReturnHandler(workerCmds.size());
-        int i=0;
-        for (WorkerCmd cmd:workerCmds) {
+        int i = 0;
+        for (WorkerCmd cmd : workerCmds) {
             Object[] param = params[i++];
             Call call = new Call(m, cmd, param, handler);
             cmdQueue.put(call);
@@ -142,10 +167,11 @@ public class MasterNode {
         }
         return handler.getReturns();
     }
+
     public static Object[] callWorkers(Method m, Object[] param, boolean async) throws InterruptedException {
         Collection<WorkerCmd> workerCmds = getInstance().getWorkerCmdMap().values();
         ReturnHandler handler = new ReturnHandler(workerCmds.size());
-        for (WorkerCmd cmd:workerCmds) {
+        for (WorkerCmd cmd : workerCmds) {
             Call call = new Call(m, cmd, param, handler);
             cmdQueue.put(call);
         }
@@ -157,22 +183,23 @@ public class MasterNode {
         }
         return handler.getReturns();
     }
+
     public static void callWorkersAsync(Method m, Object[] param) throws InterruptedException {
         callWorkers(m, param, true);
     }
+
     public static Object[] callWorkers(Method m, Object[] param) throws InterruptedException {
         return callWorkers(m, param, false);
     }
 
-    QueryListener queryListener;
-    WorkerReqListener workerListener;
-    ConcurrentMap<UnresolvedSocketAddr, WorkerCmd> workerMap;
-    ConcurrentMap<UnresolvedSocketAddr, UnresolvedSocketAddr> workerDataAddrMap; // {cmd-address: data-address}
-    int expectedWorkerNum = ClusterConf.get().getNumWorkers();
+    private QueryListener queryListener;
+    private ConcurrentMap<UnresolvedSocketAddr, WorkerCmd> workerMap;
+    private ConcurrentMap<UnresolvedSocketAddr, UnresolvedSocketAddr> workerDataAddrMap; // {cmd-address: data-address}
+    private int expectedWorkerNum = ClusterConf.get().getNumWorkers();
 
     private MasterNode() {
-        workerMap = new ConcurrentHashMap<UnresolvedSocketAddr, WorkerCmd>();
-        workerDataAddrMap = new ConcurrentHashMap<UnresolvedSocketAddr, UnresolvedSocketAddr>();
+        workerMap = new ConcurrentHashMap<>();
+        workerDataAddrMap = new ConcurrentHashMap<>();
     }
 
     public void serve() {
@@ -194,7 +221,7 @@ public class MasterNode {
             WorkerCmd workerCmd = RPC.waitForProxy(WorkerCmd.class, WorkerCmd.versionID, sockaddr, conf);
             workerMap.put(workerCmdAddr, workerCmd);
             return workerCmd;
-        } catch(IOException e) {
+        } catch (IOException e) {
             L.fatal("Cannot connect to worker:");
             L.fatal(ExceptionUtils.getStackTrace(e));
             return null;
@@ -203,10 +230,10 @@ public class MasterNode {
 
     void makeWorkerConnections() {
         Collection<UnresolvedSocketAddr> otherAddrs = workerDataAddrMap.values();
-        Text[] otherAddrTexts=new Text[otherAddrs.size()];
-        int i=0;
-        for (UnresolvedSocketAddr sockaddr:otherAddrs) {
-            otherAddrTexts[i++]=new Text(sockaddr.getHostName()+":"+sockaddr.getPort());
+        Text[] otherAddrTexts = new Text[otherAddrs.size()];
+        int i = 0;
+        for (UnresolvedSocketAddr sockaddr : otherAddrs) {
+            otherAddrTexts[i++] = new Text(sockaddr.getHostName() + ":" + sockaddr.getPort());
         }
         TextArrayWritable restAddrs = new TextArrayWritable(otherAddrTexts);
         try {
@@ -217,11 +244,20 @@ public class MasterNode {
         }
 
     }
+
+    public synchronized boolean allOneLine() {
+        return workerMap.size() == expectedWorkerNum;
+    }
+
     public synchronized void registerWorker(String addr, int cmdPort, int dataPort) {
         UnresolvedSocketAddr workerAddr = new UnresolvedSocketAddr(addr, cmdPort);
         createWorkerCmd(workerAddr);
         workerDataAddrMap.put(workerAddr, new UnresolvedSocketAddr(addr, dataPort));
-        if (workerMap.size() < expectedWorkerNum) { return; }
+        L.info(String.format("register %s:%d:%d", addr, cmdPort, dataPort));
+        L.info(String.format("registry %d workers", workerMap.size()));
+        if (workerMap.size() < expectedWorkerNum) {
+            return;
+        }
 
         queryListener.init();
         makeWorkerConnections();
@@ -237,25 +273,26 @@ public class MasterNode {
     }
 
     void initWorkerReqListener() {
-        workerListener = new WorkerReqListener(this);
+        WorkerReqListener workerListener = new WorkerReqListener(this);
         workerListener.start();
     }
 
     void initQueryListener() {
-        queryListener =new QueryListener(this);
+        queryListener = new QueryListener(this);
         queryListener.start();
     }
 
     public Map<UnresolvedSocketAddr, WorkerCmd> getWorkerCmdMap() {
         return workerMap;
     }
-    public WorkerAddrMap makeWorkerAddrMap() {
-        WorkerAddrMap machineMap=new WorkerAddrMap();
-        Set<UnresolvedSocketAddr> workerAddrs=workerMap.keySet();
-        int workerNodeNum = workerAddrs.size();
-        int addedWorker=0;
 
-        for (UnresolvedSocketAddr addr:workerAddrs) {
+    public WorkerAddrMap makeWorkerAddrMap() {
+        WorkerAddrMap machineMap = new WorkerAddrMap();
+        Set<UnresolvedSocketAddr> workerAddrs = workerMap.keySet();
+        int workerNodeNum = workerAddrs.size();
+        int addedWorker = 0;
+
+        for (UnresolvedSocketAddr addr : workerAddrs) {
             machineMap.add(addr, workerDataAddrMap.get(addr));
             addedWorker++;
             if (addedWorker >= workerNodeNum)

@@ -17,7 +17,7 @@ public class Predicate implements Literal {
 
     String name;
     public SArrayList<Param> params;
-    transient Param[] inputParams; /* contains params -- (for functions, contains args of functions */
+    private transient Param[] inputParams; /* contains params -- (for functions, contains args of functions */
     boolean isNegated;
     int posAtRuleBody;
     boolean isHeadPredicate;
@@ -189,7 +189,7 @@ public class Predicate implements Literal {
     }
 
     public Set<Variable> getVariables() {
-        Set<Variable> vars = new LinkedHashSet<Variable>();
+        Set<Variable> vars = new LinkedHashSet<>();
         for (Param p : params) {
             if (p instanceof Variable) vars.add((Variable) p);
             if (p instanceof AggrFunction) {
@@ -200,6 +200,9 @@ public class Predicate implements Literal {
         return vars;
     }
 
+    public Param paramAt(int pos) {
+        return params.get(pos);
+    }
     public Param first() {
         return params.get(0);
     }

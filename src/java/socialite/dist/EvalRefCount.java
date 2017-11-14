@@ -64,6 +64,7 @@ public class EvalRefCount {
         }
     }
     public void incBy(int id, int by) {
+//        L.info("call incBy "+id+", "+by);
         if (!counterMap.containsKey(id)) {
             counterMap.putIfAbsent(id, new AtomicInteger(0));
         }
@@ -71,6 +72,7 @@ public class EvalRefCount {
         counter.addAndGet(by);
     }
 	public void inc(int id) {
+//        L.info("call inc "+id);
         if (!counterMap.containsKey(id)) {
             counterMap.putIfAbsent(id, new AtomicInteger(0));
         }
@@ -79,6 +81,7 @@ public class EvalRefCount {
 	}
 
     public void decBy(int id, int by) {
+//        L.info("call decBy "+id+", "+by);
         AtomicInteger cnt = counterMap.get(id);
         if (cnt==null) {
             L.info("Epoch["+id+"] is not registered");
@@ -93,6 +96,7 @@ public class EvalRefCount {
         }
     }
     public void dec(int id) {
+//        L.info("call dec "+id);
         AtomicInteger cnt = counterMap.get(id);
         if (cnt==null) {
             L.info("Epoch["+id+"] is not registered");

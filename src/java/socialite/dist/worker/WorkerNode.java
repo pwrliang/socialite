@@ -26,15 +26,15 @@ import socialite.util.UnresolvedSocketAddr;
 import socialite.yarn.ClusterConf;
 
 public class WorkerNode extends Thread {
-    public static final Log L=LogFactory.getLog(WorkerNode.class);
+    public static final Log L = LogFactory.getLog(WorkerNode.class);
 
-    AtomicBoolean isReady = new AtomicBoolean(false);
-    WorkerConnPool connPool;
-    CmdListener cmdListener;
-    WorkerRequest request;
-    Manager manager;
-    Thread[] recvThreads;
-    FastQueue<RecvTask> recvQ;
+    private AtomicBoolean isReady = new AtomicBoolean(false);
+    private WorkerConnPool connPool;
+    private CmdListener cmdListener;
+    private WorkerRequest request;
+    private Manager manager;
+    private FastQueue<RecvTask> recvQ;
+
     public WorkerNode() {
         //super("WorkerNode Thread");
         connPool = new WorkerConnPool();
@@ -47,8 +47,9 @@ public class WorkerNode extends Thread {
         initRecvThread();
         startListen();
         register();
-        try { join(); }
-        catch (InterruptedException e) {
+        try {
+            join();
+        } catch (InterruptedException e) {
             L.info("Terminating WorkerNode:" + e);
         }
     }
@@ -56,34 +57,45 @@ public class WorkerNode extends Thread {
     void initNetworkResources() {
         ByteBufferPool.get();
     }
+
     void initCmdListener() {
         cmdListener = new CmdListener(this);
         cmdListener.start();
     }
+
     public void initManagerAndWorkers() {
         manager = Manager.create();
     }
+
     void initRecvThread() {
         recvQ = Receiver.recvq();
         int recvNum = (ClusterConf.get().getNumWorkerThreads() + 1) / 2;
         if (recvNum < 4) recvNum = 4;
         if (recvNum > 64) recvNum = 64;
 
-        recvThreads = new Thread[recvNum];
-        for (int i=0; i<recvThreads.length; i++) {
-            Receiver recv=new Receiver(recvQ, connPool, manager, cmdListener);
-            recvThreads[i] = new Thread(recv, "Receiver #"+i);
+        Thread[] recvThreads = new Thread[recvNum];
+        for (int i = 0; i < recvThreads.length; i++) {
+            Receiver recv = new Receiver(recvQ, connPool, manager, cmdListener);
+            recvThreads[i] = new Thread(recv, "Receiver #" + i);
             recvThreads[i].start();
         }
     }
-    public boolean isReady() { return isReady.get(); }
-    public FastQueue recvQ() { return recvQ; }
+
+    public boolean isReady() {
+        return isReady.get();
+    }
+
+    public FastQueue recvQ() {
+        return recvQ;
+    }
 
     void startListen() {
         start();
     }
 
-    public WorkerConnPool getConnPool() { return connPool; }
+    public WorkerConnPool getConnPool() {
+        return connPool;
+    }
 
     public void run() {
         try {
@@ -95,7 +107,7 @@ public class WorkerNode extends Thread {
                     SelectionKey key = iter.next();
                     iter.remove();
                     if (!key.isValid()) {
-                        L.warn("Invalid key:"+key);
+                        L.warn("Invalid key:" + key);
                         continue;
                     }
 
@@ -109,7 +121,7 @@ public class WorkerNode extends Thread {
                         try {
                             selectedChannel.configureBlocking(true);
                         } catch (IOException e) {
-                            L.error("Error while configure blocking:"+e);
+                            L.error("Error while configure blocking:" + e);
                             L.fatal(ExceptionUtils.getStackTrace(e));
                             continue;
                         }
@@ -117,13 +129,13 @@ public class WorkerNode extends Thread {
                         RecvTask recv = new RecvTask(nodeAddr, selectedChannel);
                         recvQ.add(recv);
                     } else {
-                        L.error("Unexpected key operation(!acceptable, !readable):"+key);
+                        L.error("Unexpected key operation(!acceptable, !readable):" + key);
                     }
                 } // while selectedKeys
                 connPool.registerCanceledConn();
             }
         } catch (Exception e) {
-            L.fatal("Error while select() operation:"+e);
+            L.fatal("Error while select() operation:" + e);
             L.fatal(ExceptionUtils.getStackTrace(e));
         } finally {
             L.info("WorkerNode terminating");
@@ -133,48 +145,49 @@ public class WorkerNode extends Thread {
     void register() {
         isReady.set(true);
 
-        Configuration hConf=new Configuration();
-        String masterAddr=PortMap.worker().masterAddr();
-        int reqPort=PortMap.worker().getPort("workerReq");
+        Configuration hConf = new Configuration();
+        String masterAddr = PortMap.worker().masterAddr();
+        int reqPort = PortMap.worker().getPort("workerReq");
         InetSocketAddress addr = new InetSocketAddress(masterAddr, reqPort);
         try {
             request = RPC.waitForProxy(WorkerRequest.class,
                     WorkerRequest.versionID,
                     addr, hConf);
         } catch (IOException e) {
-            L.fatal("Cannot connect to master:"+e);
+            L.fatal("Cannot connect to master:" + e);
             L.fatal(ExceptionUtils.getStackTrace(e));
         }
         String host = NetUtils.getHostname().split("/")[1];
         int cmdPort = PortMap.worker().getPort("workerCmd");
         int dataPort = PortMap.worker().getPort("data");
+        System.out.println(host);
         request.register(host, cmdPort, dataPort);
     }
 
     public void reportError(int ruleid, Throwable t) {
-        L.warn("Worker node error:"+ExceptionUtils.getStackTrace(t));
+        L.warn("Worker node error:" + ExceptionUtils.getStackTrace(t));
 
-        SRuntime runtime=SRuntimeWorker.getInst();
-        if (runtime==null) {
+        SRuntime runtime = SRuntimeWorker.getInst();
+        if (runtime == null) {
             L.error("reportError(): Worker runtime is null.");
             return;
         }
-        String msg="";
-        if (t!=null) msg += t.getClass().getSimpleName()+" ";
-        if (t!=null && t.getMessage()!=null) msg = t.getMessage();
+        String msg = "";
+        if (t != null) msg += t.getClass().getSimpleName() + " ";
+        if (t != null && t.getMessage() != null) msg = t.getMessage();
         IntWritable workerid = new IntWritable(runtime.getWorkerAddrMap().myIndex());
         request.handleError(workerid, new IntWritable(ruleid), new Text(msg));
     }
 
     public void reportIdle(int epochId, int ts) {
         SRuntime runtime = SRuntimeWorker.getInst();
-        int id=runtime.getWorkerAddrMap().myIndex();
+        int id = runtime.getWorkerAddrMap().myIndex();
         request.reportIdle(new IntWritable(epochId), new IntWritable(id), new IntWritable(ts));
     }
 
     public boolean connect(String[] workerAddrs) {
         UnresolvedSocketAddr[] addrs = new UnresolvedSocketAddr[workerAddrs.length];
-        for (int i=0; i<workerAddrs.length; i++) {
+        for (int i = 0; i < workerAddrs.length; i++) {
             String host = workerAddrs[i].split(":")[0];
             int port = Integer.parseInt(workerAddrs[i].split(":")[1]);
             addrs[i] = new UnresolvedSocketAddr(host, port);
@@ -184,17 +197,20 @@ public class WorkerNode extends Thread {
     }
 
     static WorkerNode theWorkerNode;
+
     public static WorkerNode getInst() {
         return theWorkerNode;
     }
-    static void startWorkerNode() {
+
+    public static void startWorkerNode() {
         theWorkerNode = new WorkerNode();
         try {
             theWorkerNode.serve();
         } catch (Exception e) {
-            L.error("Exception while runining worker node:"+ExceptionUtils.getStackTrace(e));
+            L.error("Exception while runining worker node:" + ExceptionUtils.getStackTrace(e));
         }
     }
+
     public static void main(String[] args) {
         startWorkerNode();
     }

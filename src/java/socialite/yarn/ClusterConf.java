@@ -16,12 +16,23 @@ public class ClusterConf {
 
     ClusterConf() {
         numWorkers = Integer.parseInt(System.getProperty("socialite.worker.num", "2"));
-        numWorkerThreads = Integer.parseInt(System.getProperty("socialite.worker.num_threads", "2"));
+        String numCores = ""+Runtime.getRuntime().availableProcessors();
+        numWorkerThreads = Integer.parseInt(System.getProperty("socialite.worker.num_threads", numCores));
         workerHeapSize = Integer.parseInt(System.getProperty("socialite.worker.heap_size", "8192"));
 
         int max = Integer.parseInt(System.getProperty("socialite.worker.max", "-1"));
         max = Math.max(max, numWorkers*4);
         maxNumWorkers = BitUtils.nextHighestPowerOf2(max);
+//        nextHighestPowerOf2
+//        0	0
+//        1	1
+//        2	2
+//        3	4
+//        4	4
+//        5	8
+//        6	8
+//        7	8
+//        8	8
     }
 
     public int getNumWorkers() { return numWorkers; }

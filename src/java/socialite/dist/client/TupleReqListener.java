@@ -29,42 +29,48 @@ import socialite.tables.Tuple_float;
 import socialite.tables.Tuple_int;
 import socialite.tables.Tuple_long;
 import socialite.util.SociaLiteException;
+import socialite.yarn.SocialiteAppMasterClient;
 
 class QueryVisitorInfo {
-	final QueryVisitor visitor;
-	boolean reallyFinish;
-	QueryVisitorInfo(QueryVisitor _visitor, boolean _reallyFinish) {
-		visitor=_visitor;
-		reallyFinish=_reallyFinish;
-	}
+    final QueryVisitor visitor;
+    boolean reallyFinish;
+
+    QueryVisitorInfo(QueryVisitor _visitor, boolean _reallyFinish) {
+        visitor = _visitor;
+        reallyFinish = _reallyFinish;
+    }
 }
+
 public class TupleReqListener implements TupleReq {
-	static long versionID = 1L;
-	public static final Log L=LogFactory.getLog(TupleReqListener.class);
-	
-	ConcurrentHashMap<Long, QueryVisitorInfo> visitorMap = new ConcurrentHashMap<Long, QueryVisitorInfo>();
-	PortMap portMap;
-	Server server;
-	int port = -1;
-	String name="unnamed";
-	
-	public TupleReqListener(PortMap _portMap) {
-		portMap = _portMap;
-		try { start(); }
-		catch (java.net.BindException e) {
-			L.fatal("Cannot bind to port "+port+": "+e);
-		}
-	}
-	
-	public void registerQueryVisitor(long id, QueryVisitor qv) {
-		visitorMap.put(id, new QueryVisitorInfo(qv, true));
-	}
-	
-	public void start() throws java.net.BindException {
-		try {
-			String host = NetUtils.getHostname().split("/")[1];
-			int port = portMap.usePort("tupleReq");
-			server = new RPC.Builder(new Configuration()).
+    static long versionID = 1L;
+    public static final Log L = LogFactory.getLog(TupleReqListener.class);
+
+    ConcurrentHashMap<Long, QueryVisitorInfo> visitorMap = new ConcurrentHashMap<Long, QueryVisitorInfo>();
+    PortMap portMap;
+    Server server;
+    int port = -1;
+    String name = "unnamed";
+
+    public TupleReqListener(PortMap _portMap) {
+        portMap = _portMap;
+        try {
+            start();
+        } catch (java.net.BindException e) {
+            L.fatal("Cannot bind to port " + port + ": " + e);
+        }
+    }
+
+    public void registerQueryVisitor(long id, QueryVisitor qv) {
+        visitorMap.put(id, new QueryVisitorInfo(qv, true));
+    }
+
+    public void start() throws java.net.BindException {
+        try {
+            String host = NetUtils.getHostname().split("/")[1];
+//            SocialiteAppMasterClient cli = SocialiteAppMasterClient.get();
+//            String host = cli.getHost();
+            int port = portMap.usePort("tupleReq");
+            server = new RPC.Builder(new Configuration()).
                     setInstance(this).
                     setProtocol(TupleReq.class).
                     setBindAddress(host).
@@ -72,95 +78,103 @@ public class TupleReqListener implements TupleReq {
                     setNumHandlers(8).
                     build();
             server.start();
-		} catch (java.net.BindException e) {
-			throw e;
-		} catch (IOException e) {
-			L.fatal("Cannot start TupleReq listener:"+e);
-			L.fatal(ExceptionUtils.getStackTrace(e));
-			throw new SociaLiteException(e);
-		}
-	}
-	
-	@Override
-	public BooleanWritable consume(LongWritable id, TupleArrayWritable tuples) {
-		if (!visitorMap.containsKey(id.get())) return new BooleanWritable(false);
+        } catch (java.net.BindException e) {
+            throw e;
+        } catch (IOException e) {
+            L.fatal("Cannot start TupleReq listener:" + e);
+            L.fatal(ExceptionUtils.getStackTrace(e));
+            throw new SociaLiteException(e);
+        }
+    }
 
-		Writable[] tupleW = tuples.get();
-		QueryVisitor qv = visitorMap.get(id.get()).visitor;
-		try {
-			for (Writable w:tupleW) {			
-				Tuple t=((TupleW)w).get();
-				boolean cont;
-				if (t.getClass().equals(Tuple_int.class)) {
-					cont=qv.visit(((Tuple_int)t)._0);
-				} else if (t.getClass().equals(Tuple_long.class)) {
-					cont=qv.visit(((Tuple_long)t)._0);
-				} else if (t.getClass().equals(Tuple_float.class)) {
-					cont=qv.visit(((Tuple_float)t)._0);
-				} else if (t.getClass().equals(Tuple_double.class)) {
-					cont=qv.visit(((Tuple_double)t)._0);
-				} else if (t.getClass().equals(Tuple_Object.class)) {
-					cont=qv.visit(((Tuple_Object)t)._0);
-				} else {
-					cont=qv.visit(t);
-				}
-			}
-			return new BooleanWritable(true);
-		} catch (Throwable t) {
-			L.error("Exception while receiving tuples:"+t);
-			L.error(ExceptionUtils.getStackTrace(t));
-			visitorMap.remove(id.get());
-			return new BooleanWritable(false);
-		}
-	}
-	public boolean exists(long id) {
-		return visitorMap.containsKey(id);
-	}
-	public void setInvokeFinish(long id, boolean finish) {
-		QueryVisitorInfo info = visitorMap.get(id);
-		if (info==null) return;
-		info.reallyFinish = finish;
-	}
-	public void done(long id, boolean force) {
-		QueryVisitorInfo info = visitorMap.get(id);
-		if (info==null) return;
+    @Override
+    public BooleanWritable consume(LongWritable id, TupleArrayWritable tuples) {
+        if (!visitorMap.containsKey(id.get())) return new BooleanWritable(false);
 
-		QueryVisitor qv=info.visitor;
-		boolean reallyFinish = info.reallyFinish;		
-		if (reallyFinish) {
-			qv.finish(force);
-			visitorMap.remove(id);			
-		}
-	}
-	public void done(LongWritable id) {
-		QueryVisitorInfo info = visitorMap.get(id.get());
-		if (info==null) return;
+        Writable[] tupleW = tuples.get();
+        QueryVisitor qv = visitorMap.get(id.get()).visitor;
+        try {
+            for (Writable w : tupleW) {
+                Tuple t = ((TupleW) w).get();
+                boolean cont;
+                if (t.getClass().equals(Tuple_int.class)) {
+                    cont = qv.visit(((Tuple_int) t)._0);
+                } else if (t.getClass().equals(Tuple_long.class)) {
+                    cont = qv.visit(((Tuple_long) t)._0);
+                } else if (t.getClass().equals(Tuple_float.class)) {
+                    cont = qv.visit(((Tuple_float) t)._0);
+                } else if (t.getClass().equals(Tuple_double.class)) {
+                    cont = qv.visit(((Tuple_double) t)._0);
+                } else if (t.getClass().equals(Tuple_Object.class)) {
+                    cont = qv.visit(((Tuple_Object) t)._0);
+                } else {
+                    cont = qv.visit(t);
+                }
+            }
+            return new BooleanWritable(true);
+        } catch (Throwable t) {
+            L.error("Exception while receiving tuples:" + t);
+            L.error(ExceptionUtils.getStackTrace(t));
+            visitorMap.remove(id.get());
+            return new BooleanWritable(false);
+        }
+    }
 
-		QueryVisitor qv=info.visitor;
-		boolean reallyFinish = info.reallyFinish;		
-		if (reallyFinish) {
-			qv.finish();
-			visitorMap.remove(id.get());
-		}
-	}
-	public void shutdown() {
-		if (server!=null) {
-			server.stop();
-			try { server.join(); }
-			catch (InterruptedException e) { }
-		}
-	}
-	@Override
-	public long getProtocolVersion(String arg0, long arg1) throws IOException {
-		return versionID;
-	}
+    public boolean exists(long id) {
+        return visitorMap.containsKey(id);
+    }
+
+    public void setInvokeFinish(long id, boolean finish) {
+        QueryVisitorInfo info = visitorMap.get(id);
+        if (info == null) return;
+        info.reallyFinish = finish;
+    }
+
+    public void done(long id, boolean force) {
+        QueryVisitorInfo info = visitorMap.get(id);
+        if (info == null) return;
+
+        QueryVisitor qv = info.visitor;
+        boolean reallyFinish = info.reallyFinish;
+        if (reallyFinish) {
+            qv.finish(force);
+            visitorMap.remove(id);
+        }
+    }
+
+    public void done(LongWritable id) {
+        QueryVisitorInfo info = visitorMap.get(id.get());
+        if (info == null) return;
+
+        QueryVisitor qv = info.visitor;
+        boolean reallyFinish = info.reallyFinish;
+        if (reallyFinish) {
+            qv.finish();
+            visitorMap.remove(id.get());
+        }
+    }
+
+    public void shutdown() {
+        if (server != null) {
+            server.stop();
+            try {
+                server.join();
+            } catch (InterruptedException e) {
+            }
+        }
+    }
+
+    @Override
+    public long getProtocolVersion(String arg0, long arg1) throws IOException {
+        return versionID;
+    }
 
     @Override
     public ProtocolSignature getProtocolSignature(String protocol, long clientVersion, int clientMethodsHash)
             throws IOException {
         Class<? extends VersionedProtocol> inter;
         try {
-            inter = (Class<? extends VersionedProtocol>)getClass().getGenericInterfaces()[0];
+            inter = (Class<? extends VersionedProtocol>) getClass().getGenericInterfaces()[0];
         } catch (Exception e) {
             throw new IOException(e);
         }

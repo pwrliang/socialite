@@ -51,37 +51,42 @@ import socialite.util.SocialiteFinishEval;
 
 
 public class CmdListener implements WorkerCmd {
-    public static final Log L=LogFactory.getLog(CmdListener.class);
+    public static final Log L = LogFactory.getLog(CmdListener.class);
 
     WorkerNode worker;
     FileSystem hdfs;
     FileSystem localFs;
     ConcurrentHashMap<Long, QueryRunnable> runningQueryMap =
             new ConcurrentHashMap<Long, QueryRunnable>();
+
     public CmdListener(WorkerNode _worker) {
-        worker=_worker;
+        worker = _worker;
     }
 
     FileSystem hdfs() {
-        if (hdfs==null) {
-            try { hdfs = FileSystem.get(new Configuration()); }
-            catch (IOException e) {
+        if (hdfs == null) {
+            try {
+                hdfs = FileSystem.get(new Configuration());
+            } catch (IOException e) {
                 L.error("Cannot access HDFS. Check Hadoop configuration:");
                 L.error(ExceptionUtils.getStackTrace(e));
             }
         }
         return hdfs;
     }
+
     FileSystem localfs() {
-        if (localFs==null) {
-            try { localFs = FileSystem.getLocal(new Configuration()); }
-            catch (IOException e) {
+        if (localFs == null) {
+            try {
+                localFs = FileSystem.getLocal(new Configuration());
+            } catch (IOException e) {
                 L.error("Error while calling FileSystem.getLocal():");
                 L.error(ExceptionUtils.getStackTrace(e));
             }
         }
         return localFs;
     }
+
     public void start() {
         try {
             String host = NetUtils.getHostname().split("/")[1];
@@ -106,7 +111,7 @@ public class CmdListener implements WorkerCmd {
 
     @Override
     public BooleanWritable addToClassPath(Text _path) {
-        String path=_path.toString();
+        String path = _path.toString();
         Loader.addClassPath(new File(path));
         return new BooleanWritable(true);
     }
@@ -114,13 +119,17 @@ public class CmdListener implements WorkerCmd {
     public Writable status() {
         return status(new IntWritable(0));
     }
+
     public Writable status(IntWritable verbose) {
-        Status s=new Status();
+        Status s = new Status();
         s.putMemStatus(SRuntime.freeMemory());
         SRuntime runtime = SRuntimeWorker.getInst();
         TIntFloatMap progressMap;
-        if (runtime==null) { progressMap = new TIntFloatHashMap(); }
-        else { progressMap = runtime.getProgress();}
+        if (runtime == null) {
+            progressMap = new TIntFloatHashMap();
+        } else {
+            progressMap = runtime.getProgress();
+        }
 
         s.putProgress(progressMap);
         return Status.toWritable(s);
@@ -129,19 +138,19 @@ public class CmdListener implements WorkerCmd {
     public void addPyFunctions(BytesWritable bytesClassFilesBlob, BytesWritable bytesPyfuncs) {
         ClassFilesBlob classFilesBlob = ClassFilesBlob.fromBytesWritable(bytesClassFilesBlob);
         Loader.loadFromBytes(classFilesBlob.names(), classFilesBlob.files());
-        for (String pyClassName:classFilesBlob.names()) {
+        for (String pyClassName : classFilesBlob.names()) {
             try {
-                Class<?> pyClass=Loader.forName(pyClassName);
+                Class<?> pyClass = Loader.forName(pyClassName);
                 Constructor<?> constr = pyClass.getConstructor(new Class[]{String.class});
-                constr.newInstance(new Object[] {"<SociaLite>"});
+                constr.newInstance(new Object[]{"<SociaLite>"});
             } catch (Exception e) {
-                L.warn("Failed to make PyCode object:"+e);
+                L.warn("Failed to make PyCode object:" + e);
                 L.warn(ExceptionUtils.getStackTrace(e));
                 continue;
             }
         }
 
-        List<PyFunction> pyfuncs=PyInterp.fromBytesWritable(bytesPyfuncs);
+        List<PyFunction> pyfuncs = PyInterp.fromBytesWritable(bytesPyfuncs);
         PyInterp.addFunctions(pyfuncs);
         PyInvoke.update(pyfuncs);
     }
@@ -152,12 +161,13 @@ public class CmdListener implements WorkerCmd {
     }
 
     boolean containsName(List<String> klasses, String name) {
-        for (String klass:klasses) {
+        for (String klass : klasses) {
             if (klass.contains(name))
                 return true;
         }
         return false;
     }
+
     void copyClassFilesToLocalDir(List<String> klasses, String hdfsDir, String localDir) {
         Path hdfsPath = new Path(hdfsDir);
         try {
@@ -166,23 +176,24 @@ public class CmdListener implements WorkerCmd {
 
             File local = new File(localDir);
             local.mkdirs();
-            for (FileStatus fs:hdfs().listStatus(new Path(hdfsDir))) {
+            for (FileStatus fs : hdfs().listStatus(new Path(hdfsDir))) {
                 if (fs.isDir()) {
                     String dirName = fs.getPath().getName();
                     if (!containsName(klasses, dirName)) continue;
                     copyClassFilesToLocalDir(klasses, fs.getPath().toString(),
                             PathTo.concat(localDir, fs.getPath().getName()));
                 } else if (fs.getPath().getName().endsWith(".class")) {
-                    String name=fs.getPath().getName();
-                    name = name.substring(0, name.length()-".class".length());
+                    String name = fs.getPath().getName();
+                    name = name.substring(0, name.length() - ".class".length());
                     if (!containsName(klasses, name)) continue;
 
-                    Path from=fs.getPath();  Path to=new Path(localDir);
+                    Path from = fs.getPath();
+                    Path to = new Path(localDir);
                     hdfs().copyToLocalFile(from, to);
                 }
             }
         } catch (IOException e) {
-            L.error("Error while copying class files to worker local dir:"+e);
+            L.error("Error while copying class files to worker local dir:" + e);
             L.warn(ExceptionUtils.getStackTrace(e));
         }
     }
@@ -193,20 +204,21 @@ public class CmdListener implements WorkerCmd {
 
     void deleteRecur(File dir) {
         assert dir.isDirectory();
-        for (File f:dir.listFiles()) {
+        for (File f : dir.listFiles()) {
             if (f.isDirectory())
                 deleteRecur(f);
 
             f.delete();
         }
     }
+
     void prepareWorkSpace() {
         // prepare workspace in local-fs
         String localDir = PathTo.classOutput();
 
         File local = new File(localDir);
         if (local.exists()) {
-            assert local.isDirectory():localDir+" is not a directory";
+            assert local.isDirectory() : localDir + " is not a directory";
             deleteRecur(local);
         }
     }
@@ -219,9 +231,11 @@ public class CmdListener implements WorkerCmd {
         Manager.getInst().setRuntime(runtime);
         if (!worker.isReady()) {
             int tryCnt;
-            for (tryCnt=0; tryCnt<20; tryCnt++) {
-                try { Thread.sleep(50);}
-                catch (InterruptedException e) { }
+            for (tryCnt = 0; tryCnt < 20; tryCnt++) {
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                }
                 if (worker.isReady()) break;
             }
             if (!worker.isReady()) {
@@ -244,17 +258,19 @@ public class CmdListener implements WorkerCmd {
     }
 
     void printMemInfo(String prefix) {
-        long used=Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+        long used = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
 
-        L.info(prefix+" Used Memory:"+used/1024/1024+"M");
+        L.info(prefix + " Used Memory:" + used / 1024 / 1024 + "M");
     }
 
     @Override
     public void run(EpochW ew) {
+        //Client -> Master -> Worker.run(EpochW)
+        L.info("Worker: call "+ew);
         SRuntime runtime = SRuntimeWorker.getInst();
         Epoch e = ew.get();
         prepare(runtime, e);
-        Eval eval=runtime.getEvalInst(e);
+        Eval eval = runtime.getEvalInst(e);
         assert eval instanceof EvalDist;
         eval.run();
         return;
@@ -266,6 +282,7 @@ public class CmdListener implements WorkerCmd {
         int ts = timestamp.get();
         return new BooleanWritable(EvalRefCount.getInst().stillIdle(epochId, ts));
     }
+
     @Override
     public void setEpochDone(IntWritable epochId) {
         EvalRefCount.getInst().clear(epochId.get());
@@ -275,26 +292,28 @@ public class CmdListener implements WorkerCmd {
                                     Text queryClass,
                                     LongWritable iterId,
                                     ConstsWritable args) {
-        int tid=queryTid.get();
+        int tid = queryTid.get();
         String queryClsName = queryClass.toString();
 
         SRuntime runtime = SRuntimeWorker.getInst();
         String masterAddr = PortMap.worker().masterAddr();
         int tupleReqPort = PortMap.worker().getPort("tupleReq");
         QueryVisitor qv = new TupleSend("CmdListener", masterAddr, tupleReqPort, iterId.get());
-        QueryRunnable query=runtime.getQueryInst(tid, queryClsName, qv);
+        QueryRunnable query = runtime.getQueryInst(tid, queryClsName, qv);
         query.setArgs(args.get());
         runningQueryMap.put(iterId.get(), query);
-        try { query.run(); }
-        catch (SocialiteFinishEval e) {
+        try {
+            query.run();
+        } catch (SocialiteFinishEval e) {
             runningQueryMap.remove(iterId.get());
         }
         return new BooleanWritable(true);
     }
+
     @Override
     public void cleanupTableIter(LongWritable id) {
-        QueryRunnable qr=runningQueryMap.get(id.get());
-        if (qr==null) return;
+        QueryRunnable qr = runningQueryMap.get(id.get());
+        if (qr == null) return;
 
         qr.kill();
     }
@@ -316,7 +335,7 @@ public class CmdListener implements WorkerCmd {
 
     @Override
     public void info() {
-        SRuntimeWorker runtime = SRuntimeWorker.getInst();
+        printMemInfo("info");
     }
 
     @Override
@@ -329,7 +348,7 @@ public class CmdListener implements WorkerCmd {
             throws IOException {
         Class<? extends VersionedProtocol> inter;
         try {
-            inter = (Class<? extends VersionedProtocol>)getClass().getGenericInterfaces()[0];
+            inter = (Class<? extends VersionedProtocol>) getClass().getGenericInterfaces()[0];
         } catch (Exception e) {
             throw new IOException(e);
         }
