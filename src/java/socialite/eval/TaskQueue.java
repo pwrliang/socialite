@@ -192,7 +192,7 @@ public class TaskQueue {
     public static final Log L = LogFactory.getLog(TaskQueue.class);
 
     public void pop(Task task) {
-        L.info("call dec in TaskQueue.pop");
+        //L.info("call dec in TaskQueue.pop");
         EvalRefCount.getInst().dec(task.getEpochId());
         reservedTasks.remove(task);
     }

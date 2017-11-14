@@ -42,7 +42,7 @@ public class Receiver implements Runnable {
                 Command cmd = msg.get();
                 cmd.setReceived();
                 manager.addCmd(cmd);
-                L.info("call dec in Receiver.run");
+                //L.info("call dec in Receiver.run");
                 EvalRefCount.getInst().dec(msg.getEpochId());
             } catch (InterruptedException ie) {
                 break;

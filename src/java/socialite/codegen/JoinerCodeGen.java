@@ -278,6 +278,7 @@ public class JoinerCodeGen {
 
         for (Predicate p:rule.getBodyP()) {
             ST newVisitor = createNewVisitor(p);
+
             newVisitor.add("var", visitorVar(p));
             code.add("stmts", newVisitor);
         }
@@ -1529,6 +1530,7 @@ public class JoinerCodeGen {
 
             m = getVisitMethod(p, startCol, endCol, numColumns);
             if (areAllParamsDontcare(p.inputParams(), g.startIdx(), numColumns-1)) {
+                m.remove("ret");//bug fix, remove added "return true"
                 m.add("ret", "return false");// stop iteration after the visit method m.
                 break;
             } else {

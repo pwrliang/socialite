@@ -75,7 +75,7 @@ public class SendQueue {
 		return msg;
 	}
 	public void pop(WorkerMessage m) {
-		L.info("call dec in SendQueue.pop");
+		//L.info("call dec in SendQueue.pop");
         EvalRefCount.getInst().dec(m.getEpochId());
         reserved.remove(m);
 	}

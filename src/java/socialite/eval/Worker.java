@@ -197,7 +197,7 @@ public class Worker implements Runnable {
             Task task = null;
             try {
                 task = reserveTask();
-                L.info("reserve task "+task);
+//                L.info("reserve task "+task);
                 long start = 0, end = 0;
                 if (verbose) {
                     start = System.currentTimeMillis();

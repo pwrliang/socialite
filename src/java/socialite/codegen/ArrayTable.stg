@@ -36,7 +36,6 @@ package socialite.tables;
         } else {
             lockStatus = LockStatus.enabled;
         }
-        System.out.println("lock status: "+lockStatus);
     }
     static void _disableInternalLock() {
         lockStatus = LockStatus.disabled;
