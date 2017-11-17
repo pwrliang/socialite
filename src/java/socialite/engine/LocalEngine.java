@@ -42,7 +42,7 @@ import socialite.util.SociaLiteException;
 
 
 public class LocalEngine {
-    public static final Log L=LogFactory.getLog(LocalEngine.class);
+    public static final Log L = LogFactory.getLog(LocalEngine.class);
 
     Parser parser;
     SRuntime runtime;
@@ -51,21 +51,27 @@ public class LocalEngine {
         init();
         Manager.create().setRuntime(runtime);
     }
+
     void init() {
-        parser=new Parser();
+        parser = new Parser();
         runtime = SRuntime.create();
     }
 
     public TableRefLocal getTableRef(String name) {
         Table t = runtime.getTableMap().get(name);
-        if (t==null)
+        if (t == null)
             return null;
         return new TableRefLocal(t);
     }
+
+    public SRuntime getRuntime() {
+        return runtime;
+    }
+
     public CodeGenMain compile(String program) {
         CodeGenMain codeGen;
         try {
-            synchronized(parser.monitor()) {
+            synchronized (parser.monitor()) {
                 parser.parse(program);
                 Analysis an = new Analysis(parser);
                 an.run();
@@ -83,15 +89,15 @@ public class LocalEngine {
     public void run(String program) {
         try {
             List<Eval> evals = compile(program).getEvalInsts();
-            for (Eval e:evals) {
+            for (Eval e : evals) {
                 e.run();
-			   /* if (runtime.getException()!=null) {
+               /* if (runtime.getException()!=null) {
 			    	throw new SociaLiteException(runtime.getException());
 			    }*/
             }
         } catch (Exception e) {
-            L.warn("Exception while running program:"+program);
-            L.warn("Stack trace:"+ExceptionUtils.getStackTrace(e));
+            L.warn("Exception while running program:" + program);
+            L.warn("Stack trace:" + ExceptionUtils.getStackTrace(e));
             throw new SociaLiteException(e);
         }
     }
@@ -101,15 +107,15 @@ public class LocalEngine {
             CodeGenMain codeGen = compile(program);
             //System.out.println("Code generation:"+(System.currentTimeMillis()-start)+"ms");
             List<Eval> evals = codeGen.getEvalInsts();
-            for (Eval e:evals) {
+            for (Eval e : evals) {
                 e.run();
             }
             codeGen.generateQuery(qv);
             Runnable query = codeGen.getQueryInst();
-            if (query==null) qv.finish();
+            if (query == null) qv.finish();
             else {
-                final Thread t=Thread.currentThread();
-                Runtime.getRuntime().addShutdownHook(new Thread(){
+                final Thread t = Thread.currentThread();
+                Runtime.getRuntime().addShutdownHook(new Thread() {
                     public void run() {
                         t.interrupt();
                     }
@@ -117,17 +123,21 @@ public class LocalEngine {
                 query.run();
             }
         } catch (Exception e) {
-            L.error("Exception while running "+program);
+            L.error("Exception while running " + program);
             L.error(ExceptionUtils.getStackTrace(e));
             if (Thread.currentThread().isInterrupted()) {
                 return;
             }
             if (e instanceof PyException) {
-                PyException pye = ((PyException)e);
+                PyException pye = ((PyException) e);
                 if (pye.type instanceof PyJavaType) {
                     Object error = pye.value.__tojava__(Throwable.class);
-                    if (error instanceof InterruptedException) { return; }
-                    if (Py.matchException(pye, Py.KeyboardInterrupt)) { return; }
+                    if (error instanceof InterruptedException) {
+                        return;
+                    }
+                    if (Py.matchException(pye, Py.KeyboardInterrupt)) {
+                        return;
+                    }
                 }
             }
             throw new SociaLiteException(e);
@@ -135,15 +145,16 @@ public class LocalEngine {
     }
 
     public void clearTable(String name) {
-        TableInstRegistry reg=runtime.getTableRegistry();
+        TableInstRegistry reg = runtime.getTableRegistry();
         reg.clearTable(name);
     }
+
     public void dropTable(String name) {
-        TableInstRegistry reg=runtime.getTableRegistry();
+        TableInstRegistry reg = runtime.getTableRegistry();
         if (name.equals("*")) {
             Map<String, Table> tableMap = parser.getTableMap();
             List<String> tableNames = new ArrayList(tableMap.keySet());
-            for (String n:tableNames) {
+            for (String n : tableNames) {
                 parser.dropTable(n);
                 reg.dropTable(n);
             }
@@ -162,51 +173,59 @@ public class LocalEngine {
         Loader.cleanup();
         CodeGenMain.clearCache();
     }
+
     void cleanup(File outdir) {
         if (!outdir.exists()) return;
         assert outdir.isDirectory();
-        for (File f:outdir.listFiles()) {
-            if (f.isDirectory()) { cleanup(f); }
+        for (File f : outdir.listFiles()) {
+            if (f.isDirectory()) {
+                cleanup(f);
+            }
             //else if (f.getName().endsWith(".java")) { f.delete(); }
         }
     }
 
-    public Status status() { return status(0); }
+    public Status status() {
+        return status(0);
+    }
+
     public Status status(int verbose) {
         Status s = new Status();
         s.putNodeNum("1");
-        int freeMem=(int)(SRuntime.freeMemory()/1024/1024);
-        s.putMemStatus(""+freeMem+"MB");
+        int freeMem = (int) (SRuntime.freeMemory() / 1024 / 1024);
+        s.putMemStatus("" + freeMem + "MB");
         TIntFloatMap progressMap = runtime.getProgress();
-        int[] rules=progressMap.keys();
+        int[] rules = progressMap.keys();
         Arrays.sort(rules);
-        String evalStat="";
-        for (int rule:rules) {
-            Rule r=parser.getRuleById(rule);
-            int x=(int)(progressMap.get(rule)*100);
-            if (x==100) evalStat += r+": Finished\n";
-            else if (x<0) evalStat += r+": Finished (error thrown)\n";
-            else evalStat += r+":"+x+"%\n";
+        String evalStat = "";
+        for (int rule : rules) {
+            Rule r = parser.getRuleById(rule);
+            int x = (int) (progressMap.get(rule) * 100);
+            if (x == 100) evalStat += r + ": Finished\n";
+            else if (x < 0) evalStat += r + ": Finished (error thrown)\n";
+            else evalStat += r + ":" + x + "%\n";
         }
         s.putProgress(evalStat);
         tableStatus(s);
         return s;
     }
+
     void tableStatus(Status s) {
         Map<String, Table> tableMap = parser.getTableMap();
-        String tableInfo="";
-        boolean first=true;
-        for (String name:tableMap.keySet()) {
+        String tableInfo = "";
+        boolean first = true;
+        for (String name : tableMap.keySet()) {
             if (tableMap.get(name) instanceof GeneratedT) continue;
             if (!first) tableInfo += "\n";
-            Table t=tableMap.get(name);
-            tableInfo += t.decl()+" id="+t.id();
-            first=false;
+            Table t = tableMap.get(name);
+            tableInfo += t.decl() + " id=" + t.id();
+            first = false;
         }
         s.putTableStatus(tableInfo);
     }
+
     public void update(Object pyfunc) {
         if (pyfunc instanceof PyFunction)
-            PyInvoke.update((PyFunction)pyfunc);
+            PyInvoke.update((PyFunction) pyfunc);
     }
 }

@@ -250,7 +250,6 @@ public class EvalParallel extends Eval {
                 issued |= eval(rc);
             }
         } finally {
-            L.info("eval done");
             EvalRefCount.getInst().dec(epoch.id());
             return issued;
         }

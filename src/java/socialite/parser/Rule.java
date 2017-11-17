@@ -48,6 +48,10 @@ public class Rule implements Externalizable {
         id = IdFactory.nextRuleId();
     }
 
+    public String getRuleText() {
+        return ruleDecl.toString().replace("Builtin.", "");
+    }
+
     public void setAsyncEval() {
         asyncEval = true;
     }

@@ -8,28 +8,44 @@ public class ColRange extends ColOpt {
     private static final long serialVersionUID = 1;
 
     int from, to;
-    public ColRange() {}
+
+    public ColRange() {
+    }
+
     public ColRange(int _from, int _to) {
         from = _from;
         to = _to;
     }
-    public int from() { return from; }
-    public int to() { return to; }
+
+    public int from() {
+        return from;
+    }
+
+    public int to() {
+        return to;
+    }
+
     public void set(int _from, int _to) {
-        from=_from;
-        to=_to;
+        from = _from;
+        to = _to;
     }
 
     public int hashCode() {
-        int h=0;
+        int h = 0;
         h ^= from;
         h ^= to;
         return h;
     }
+
     public boolean equals(Object o) {
         if (!(o instanceof ColRange)) return false;
-        ColRange range=(ColRange)o;
-        return from==range.from && to==range.to;
+        ColRange range = (ColRange) o;
+        return from == range.from && to == range.to;
+    }
+
+    @Override
+    public String toString() {
+        return from + ".." + to;
     }
 
     public ColRange clone() {
@@ -39,9 +55,10 @@ public class ColRange extends ColOpt {
     @Override
     public void readExternal(ObjectInput in) throws IOException,
             ClassNotFoundException {
-        from=in.readInt();
-        to=in.readInt();
+        from = in.readInt();
+        to = in.readInt();
     }
+
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
         out.writeInt(from);
