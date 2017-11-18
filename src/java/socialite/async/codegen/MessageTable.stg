@@ -16,10 +16,6 @@ public class MessageTable extends MessageTableBase {
     public static final <deltaType> IDENTITY_ELEMENT = <DoubleIdentityElement.(aggrType)>;
     <endif>
 
-    private MessageTable(){
-        //constructor for kryo
-    }
-
     public MessageTable() {
         keyDeltaMap = new ConcurrentHashMap\<>();
     }

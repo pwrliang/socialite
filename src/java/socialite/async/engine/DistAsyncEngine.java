@@ -48,48 +48,30 @@ public class DistAsyncEngine implements Runnable {
 
         asyncAnalysis = new AsyncAnalysis(tmpAn);
         List<String> decls = parser.getTableDeclMap().values().stream().map(TableDecl::getDeclText).collect(Collectors.toList());
-        List<Rule> rules = tmpAn.getEpochs().stream().flatMap(epoch -> epoch.getRules().stream()).filter(rule -> !(rule instanceof DeltaRule)
-                && !rule.toString().contains("Remote_")).collect(Collectors.toList()); //get rid of DeltaRule and Remote_rule
+        List<Rule> rules = tmpAn.getRules().stream().filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
         //由socialite执行表创建和非递归规则
         if (!AsyncConfig.get().isDebugging())
-            decls.forEach(stat -> {
-                L.info(stat);
-                clientEngine.run(stat);
-            });
-
-//        boolean existLeftRec = rules.stream().anyMatch(Rule::isLeftRec);
-//        for (Rule rule : rules) {
-//            boolean added = false;
-//            if (existLeftRec) {
-//                if (rule.isLeftRec()) {
-//                    asyncAnalysis.addRecRule(rule);
-//                    added = true;
-//                }
-//            } else if (rule.inScc()) {
-//                asyncAnalysis.addRecRule(rule);
-//                added = true;
-//            }
-//            if (!AsyncConfig.get().isDebugging())
-//                if (!added) {
-//                    L.info("exec rule " + rule.getRuleText());
-//                    clientEngine.run(rule.getRuleText());
-//                }
-//        }
+            decls.forEach(clientEngine::run);
+        boolean existLeftRec = rules.stream().anyMatch(Rule::inScc);
+        if (!existLeftRec) throw new SociaLiteException("This Datalog program has no recursive statements");
+        for (Rule rule : rules) {
+            boolean added = false;
+            if (rule.inScc() && rule.getDependingRules().size() > 0) {
+                asyncAnalysis.addRecRule(rule);
+                added = true;
+            }
+            if (!AsyncConfig.get().isDebugging())
+                if (!added) {
+                    L.info("RUN: " + rule.getRuleText());
+                    clientEngine.run(rule.getRuleText());
+                }
+        }
     }
 
     private void compile() {
         if (asyncAnalysis.analysis()) {
             asyncCodeGenMain = new AsyncCodeGenMain(asyncAnalysis);
             asyncCodeGenMain.generateDist();
-            if (AsyncConfig.get().isPriority()) {
-                if (asyncAnalysis.getAggrName().equals("dcount") || asyncAnalysis.getAggrName().equals("dsum"))
-                    AsyncConfig.get().setPriorityType(AsyncConfig.PriorityType.SUM_COUNT);
-                else if (asyncAnalysis.getAggrName().equals("dmin"))
-                    AsyncConfig.get().setPriorityType(AsyncConfig.PriorityType.MIN);
-                else if (asyncAnalysis.getAggrName().equals("dmax"))
-                    AsyncConfig.get().setPriorityType(AsyncConfig.PriorityType.MAX);
-                else throw new SociaLiteException("unsupported priority");
-            }
         }
     }
 

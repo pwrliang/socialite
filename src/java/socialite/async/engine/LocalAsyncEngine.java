@@ -27,17 +27,17 @@ public class LocalAsyncEngine {
     private AsyncAnalysis asyncAnalysis;
     private AsyncCodeGenMain asyncCodeGenMain;
     private LocalEngine localEngine;
-    Analysis tmpAn;
 
     public LocalAsyncEngine(String program) {
         localEngine = new LocalEngine();
         Parser parser = new Parser(program);
         parser.parse(program);
-        tmpAn = new Analysis(parser);
+        Analysis tmpAn = new Analysis(parser);
         tmpAn.run();
         asyncAnalysis = new AsyncAnalysis(tmpAn);
         List<String> decls = parser.getTableDeclMap().values().stream().map(TableDecl::getDeclText).collect(Collectors.toList());
-        List<Rule> rules = tmpAn.getEpochs().stream().flatMap(epoch -> epoch.getRules().stream()).filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
+//        List<Rule> rules = tmpAn.getEpochs().stream().flatMap(epoch -> epoch.getRules().stream()).filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
+        List<Rule> rules = tmpAn.getRules().stream().filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
         //由socialite执行表创建和非递归规则
         if (!AsyncConfig.get().isDebugging())
             decls.forEach(localEngine::run);

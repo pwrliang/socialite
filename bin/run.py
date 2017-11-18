@@ -78,6 +78,7 @@ cmd = """%s/bin/mpirun
     HEAP_SIZE, MASTER_HOSTNAME, WORKER_NUM, SOCIALITE_PREFIX + '/conf/log4j.properties',
     class_path, PROG_PATH, SOCIALITE_PREFIX + "/logs/master.log")
 cmd = cmd.replace('\n', '')
+print(cmd)
 os.system('pkill -f DistEntry')
 os.system(cmd)
 os.system('pkill -f DistEntry')
