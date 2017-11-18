@@ -33,30 +33,30 @@ public class AsyncConfig {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("CHECK_COND:").append(checkType == CheckerType.DELTA ? "DELTA" : "VALUE").append(getSCond()).append(" ").append(threshold).append(", ");
-        sb.append("CHECK_INTERVAL:").append(checkInterval).append(", ");
+        sb.append("\nCHECK_COND:").append(checkType == CheckerType.DELTA ? "DELTA" : "VALUE").append(getSCond()).append(" ").append(threshold).append("\n");
+        sb.append("CHECK_INTERVAL:").append(checkInterval).append("\n");
         if (priorityType == PriorityType.NONE)
-            sb.append("PRIORITY_TYPE:NONE").append(", ");
+            sb.append("PRIORITY_TYPE:NONE").append("\n");
         else {
             if (priorityType == PriorityType.SUM_COUNT)
-                sb.append("PRIORITY_TYPE:DELTA").append(", ");
+                sb.append("PRIORITY_TYPE:DELTA").append("\n");
             else if (priorityType == PriorityType.MIN)
-                sb.append("PRIORITY_TYPE:VALUE -  MIN(VALUE, DELTA)").append(", ");
+                sb.append("PRIORITY_TYPE:VALUE -  MIN(VALUE, DELTA)").append("\n");
             else if (priorityType == PriorityType.MAX)
-                sb.append("PRIORITY_TYPE:VALUE -  MAX(VALUE, DELTA)").append(", ");
-            sb.append("SCHEDULE_PORTION:").append(schedulePortion).append(", ");
+                sb.append("PRIORITY_TYPE:VALUE -  MAX(VALUE, DELTA)").append("\n");
+            sb.append("SCHEDULE_PORTION:").append(schedulePortion).append("\n");
         }
-        sb.append(priorityLocal ? "PRIORITY_LOCAL" : "PRIORITY_GLOBAL").append(", ");
-        sb.append(sync ? "SYNC" : "ASYNC").append(", ");
-        sb.append(dynamic ? "DYNAMIC" : "STATIC").append(", ");
-        sb.append(barrier ? "BARRIER" : "NON-BARRIER").append(", ");
-        sb.append(networkInfo ? "NETWORK_INFO" : "NON-NETWORK_INFO").append(", ");
-        sb.append("THREAD_NUM:").append(threadNum).append(", ");
-        sb.append("NETWORK_THREAD_NUM:").append(networkThreadNum).append(", ");
-        sb.append("INIT_SIZE:").append(initSize).append(", ");
-        sb.append("MESSAGE_UPDATE_THRESHOLD:").append(messageTableUpdateThreshold).append(", ");
-        sb.append("MESSAGE_TABLE_WAITING_INTERVAL:").append(messageTableWaitingInterval).append(", ");
-        sb.append("PRINT_RESULT:").append(printResult ? "TRUE" : "FALSE").append(", ");
+        sb.append(priorityLocal ? "PRIORITY_LOCAL" : "PRIORITY_GLOBAL").append("\n");
+        sb.append(sync ? "SYNC" : "ASYNC").append("\n");
+        sb.append(dynamic ? "DYNAMIC" : "STATIC").append("\n");
+        sb.append(barrier ? "BARRIER" : "NON-BARRIER").append("\n");
+        sb.append(networkInfo ? "NETWORK_INFO" : "NON-NETWORK_INFO").append("\n");
+        sb.append("THREAD_NUM:").append(threadNum).append("\n");
+        sb.append("NETWORK_THREAD_NUM:").append(networkThreadNum).append("\n");
+        sb.append("INIT_SIZE:").append(initSize).append("\n");
+        sb.append("MESSAGE_UPDATE_THRESHOLD:").append(messageTableUpdateThreshold).append("\n");
+        sb.append("MESSAGE_TABLE_WAITING_INTERVAL:").append(messageTableWaitingInterval).append("\n");
+        sb.append("PRINT_RESULT:").append(printResult ? "TRUE" : "FALSE").append("\n");
         sb.append("SAVE_PATH:").append(savePath);
         return sb.toString();
     }

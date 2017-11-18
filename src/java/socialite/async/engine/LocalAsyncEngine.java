@@ -36,11 +36,11 @@ public class LocalAsyncEngine {
         tmpAn.run();
         asyncAnalysis = new AsyncAnalysis(tmpAn);
         List<String> decls = parser.getTableDeclMap().values().stream().map(TableDecl::getDeclText).collect(Collectors.toList());
-//        List<Rule> rules = tmpAn.getEpochs().stream().flatMap(epoch -> epoch.getRules().stream()).filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
         List<Rule> rules = tmpAn.getRules().stream().filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
+        StringBuilder datalogStats = new StringBuilder();
         //由socialite执行表创建和非递归规则
         if (!AsyncConfig.get().isDebugging())
-            decls.forEach(localEngine::run);
+            decls.forEach(decl -> datalogStats.append(decl).append("\n"));
         boolean existLeftRec = rules.stream().anyMatch(Rule::inScc);
         if (!existLeftRec) throw new SociaLiteException("This Datalog program has no recursive statements");
         for (Rule rule : rules) {
@@ -50,9 +50,12 @@ public class LocalAsyncEngine {
                 added = true;
             }
             if (!AsyncConfig.get().isDebugging())
-                if (!added)
-                    localEngine.run(rule.getRuleText());
+                if (!added) {
+                    datalogStats.append(rule.getRuleText()).append("\n");
+                }
         }
+        //run non-recursive rules
+        localEngine.run(datalogStats.toString());
     }
 
     private void compile() {

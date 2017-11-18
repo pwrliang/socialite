@@ -49,9 +49,10 @@ public class DistAsyncEngine implements Runnable {
         asyncAnalysis = new AsyncAnalysis(tmpAn);
         List<String> decls = parser.getTableDeclMap().values().stream().map(TableDecl::getDeclText).collect(Collectors.toList());
         List<Rule> rules = tmpAn.getRules().stream().filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
+        StringBuilder datalogStats = new StringBuilder();
         //由socialite执行表创建和非递归规则
         if (!AsyncConfig.get().isDebugging())
-            decls.forEach(clientEngine::run);
+            decls.forEach(decl -> datalogStats.append(decl).append("\n"));
         boolean existLeftRec = rules.stream().anyMatch(Rule::inScc);
         if (!existLeftRec) throw new SociaLiteException("This Datalog program has no recursive statements");
         for (Rule rule : rules) {
@@ -62,10 +63,10 @@ public class DistAsyncEngine implements Runnable {
             }
             if (!AsyncConfig.get().isDebugging())
                 if (!added) {
-                    L.info("RUN: " + rule.getRuleText());
-                    clientEngine.run(rule.getRuleText());
+                    datalogStats.append(rule.getRuleText()).append("\n");
                 }
         }
+        clientEngine.run(datalogStats.toString());
     }
 
     private void compile() {

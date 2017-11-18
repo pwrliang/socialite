@@ -7,6 +7,8 @@ import socialite.dist.master.MasterNode;
 import socialite.engine.ClientEngine;
 import socialite.engine.LocalEngine;
 
+import java.util.Arrays;
+
 public class TestSocialite {
     public static final Log L = LogFactory.getLog(TestSocialite.class);
 
@@ -15,8 +17,8 @@ public class TestSocialite {
     //worker
     //-Xmx1500M -Dlog4j.configuration=file:C:\Users\acer\IdeaProjects\socialite\conf\log4j.properties
     public static void main(String[] args) throws InterruptedException {
-//        localTest();
-        distTest();
+        localTest();
+//        distTest();
     }
 
     static void localTest() {
@@ -26,12 +28,21 @@ public class TestSocialite {
 //                "Rank1(int n:0..4, double rank).\n" +
 //                "Edge(int n:0..4, (int t)).\n" +
 //                "EdgeCnt(int n:0..4, int cnt).\n" +
-//                "Edge(s, t) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n" +
+//                "Edge(s, t) :- l=$read(\"/home/gongsf/socialite/examples/prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n" +
 //                "EdgeCnt(s, $inc(1)) :- Edge(s, t).\n" +
-//                "Node(n) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_node.txt\"), n=$toInt(l).\n" +
+//                "Node(n) :- l=$read(\"/home/gongsf/socialite/examples/prog2_node.txt\"), n=$toInt(l).\n" +
 //                "Rank(n, r) :- Node(n), r = 0.2 / 4.\n" +
 //                "Rank1(y, $sum(r1)) :- Rank(x, r), Edge(x, y),  EdgeCnt(x, d), r1 = 0.8 * r / d.";
 //        localEngine.run(pagerank);
+        String datalog = "EdgeCnt(int n:0..4,int cnt).\n" +
+                "Node(int n:0..4).\n" +
+                "Rank(int n:0..4,double rank).\n" +
+                "Edge(int n:0..4,(int t)).\n";
+        Arrays.stream(datalog.split("\n")).forEach(localEngine::run);
+        datalog =
+                "Edge(s,t) :- l=$read(\"/home/gongsf/socialite/examples/prog2_edge.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).\n" +
+                        "EdgeCnt(s,$inc(1)) :- Edge(s,t).";
+        Arrays.stream(datalog.split("\n")).forEach(localEngine::run);
 //        localEngine.run("?- Rank1(n, r).", new QueryVisitor() {
 //            @Override
 //            public boolean visit(Tuple _0) {
@@ -41,11 +52,11 @@ public class TestSocialite {
 //        localEngine.run("Edge(int n:0..4, (int t)).\n" +
 //                "Edge(s, t) :- l=$read(\"C:\\\\Users\\\\acer\\\\IdeaProjects\\\\socialite\\\\examples\\\\prog2_edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n");
 
-        localEngine.run("Edge(int src:0..4847570, (int dst)).");
-        long now = System.currentTimeMillis();
-        localEngine.run("Edge(s, t) :- l=$read(\"hdfs://master:9000/Datasets/CC/LiveJournal/edge.txt\"), (s1,s2)=$split(l, \"\t\"),\n" +
-                "             s=$toInt(s1), t=$toInt(s2).");
-        System.out.println(System.currentTimeMillis() - now);
+//        localEngine.run("Edge(int src:0..4847570, (int dst)).");
+//        long now = System.currentTimeMillis();
+//        localEngine.run("Edge(s, t) :- l=$read(\"hdfs://master:9000/Datasets/CC/LiveJournal/edge.txt\"), (s1,s2)=$split(l, \"\t\"),\n" +
+//                "             s=$toInt(s1), t=$toInt(s2).");
+//        System.out.println(System.currentTimeMillis() - now);
         localEngine.shutdown();
     }
 
