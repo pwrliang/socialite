@@ -34,7 +34,7 @@ public class AsyncWorker {
             textUtils = new TextUtils(asyncConfig.getSavePath(), "part-" + myWorkerId);
         if (textUtils != null || asyncConfig.isPrintResult()) {
             TextUtils finalTextUtils = textUtils;
-            distAsyncRuntime.getAsyncTable().iterateTuple(new QueryVisitor() {
+            distAsyncRuntime.getAsyncTable().iterate(new QueryVisitor() {
                 @Override
                 public boolean visit(Tuple _0) {
                     if (asyncConfig.isPrintResult())

@@ -62,7 +62,7 @@ public class LocalAsyncEngine {
         }
     }
 
-    private void run(QueryVisitor queryVisitor) {
+    private void runReally(QueryVisitor queryVisitor) {
         TableInstRegistry registry = localEngine.getRuntime().getTableRegistry();
 
         TableInst[] recInst = registry.getTableInstArray(localEngine.getRuntime().getTableMap().get("InitTable").id());
@@ -74,7 +74,7 @@ public class LocalAsyncEngine {
             BaseAsyncTable asyncTable = (BaseAsyncTable) constructor.newInstance(AsyncConfig.get().getInitSize());
             AsyncRuntime asyncRuntime = new AsyncRuntime(asyncTable, recInst, edgeInst);
             asyncRuntime.run();
-            asyncTable.iterateTuple(queryVisitor);
+            asyncTable.iterate(queryVisitor);
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
             e.printStackTrace();
         }
@@ -94,7 +94,7 @@ public class LocalAsyncEngine {
             }
 
             TextUtils finalTextUtils = textUtils;
-            run(new QueryVisitor() {
+            runReally(new QueryVisitor() {
                 @Override
                 public boolean visit(Tuple _0) {
                     if (asyncConfig.isPrintResult())

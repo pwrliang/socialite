@@ -29,7 +29,6 @@ import socialite.tables.Tuple_float;
 import socialite.tables.Tuple_int;
 import socialite.tables.Tuple_long;
 import socialite.util.SociaLiteException;
-import socialite.yarn.SocialiteAppMasterClient;
 
 class QueryVisitorInfo {
     final QueryVisitor visitor;
@@ -67,8 +66,6 @@ public class TupleReqListener implements TupleReq {
     public void start() throws java.net.BindException {
         try {
             String host = NetUtils.getHostname().split("/")[1];
-//            SocialiteAppMasterClient cli = SocialiteAppMasterClient.get();
-//            String host = cli.getHost();
             int port = portMap.usePort("tupleReq");
             server = new RPC.Builder(new Configuration()).
                     setInstance(this).

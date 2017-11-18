@@ -2,6 +2,7 @@ package socialite.yarn;
 
 import mpi.MPI;
 import mpi.MPIException;
+import socialite.dist.PortMap;
 import socialite.util.BitUtils;
 import socialite.util.SociaLiteException;
 
@@ -55,6 +56,27 @@ public class ClusterConf {
 
     public int getWorkerHeapSize() {
         return workerHeapSize;
+    }
+
+    public String getHost() {
+//        return NetUtils.getHostname().split("/")[1];
+        return System.getProperty("socialite.master", "localhost");
+    }
+
+    public int getPort(String proto) {
+        int basePort = PortMap.DEFAULT_BASE_PORT;
+        String _basePort = System.getProperty("socialite.port");
+        if (_basePort != null) basePort = Integer.parseInt(_basePort);
+        switch (proto) {
+            case "query":
+                return basePort;
+            case "workerReq":
+                return basePort + 1;
+            case "tupleReq":
+                return basePort + 2;
+            default:
+                throw new SociaLiteException("Cannot find port for " + proto);
+        }
     }
 
     public int getRank() {

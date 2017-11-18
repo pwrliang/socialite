@@ -1,7 +1,7 @@
 package socialite.async.codegen;
 
-import socialite.async.analysis.MyVisitorImpl;
 import socialite.tables.QueryVisitor;
+import socialite.visitors.VisitorImpl;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -11,9 +11,7 @@ public abstract class BaseAsyncTable {
 
     public abstract int getSize();
 
-    public abstract void iterate(MyVisitorImpl visitor);
-
-    public abstract void iterateTuple(QueryVisitor queryVisitor);
+    public abstract void iterate(QueryVisitor queryVisitor);
 
     public boolean updateLockFree(int localInd) {
         throw new NotImplementedException();
@@ -30,9 +28,9 @@ public abstract class BaseAsyncTable {
 
     public abstract double accumulateDelta();
 
-    public abstract MyVisitorImpl getInitVisitor();
+    public abstract VisitorImpl getInitVisitor();
 
-    public MyVisitorImpl getEdgeVisitor() {
+    public VisitorImpl getEdgeVisitor() {
         throw new NotImplementedException();
     }
 }

@@ -1,11 +1,10 @@
 package socialite.async.codegen;
 
 
-import mpi.MPI;
 import socialite.async.AsyncConfig;
-import socialite.async.analysis.MyVisitorImpl;
 import socialite.async.util.SerializeTool;
 import socialite.resource.DistTablePartitionMap;
+import socialite.visitors.VisitorImpl;
 import socialite.yarn.ClusterConf;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
@@ -88,11 +87,11 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
 
     public abstract void applyBuffer(MessageTableBase messageTable);
 
-    public MyVisitorImpl getEdgeVisitor() {
+    public VisitorImpl getEdgeVisitor() {
         throw new NotImplementedException();
     }
 
-    public MyVisitorImpl getInitVisitor() {
+    public VisitorImpl getInitVisitor() {
         throw new NotImplementedException();
     }
 }

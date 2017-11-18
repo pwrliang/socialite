@@ -266,7 +266,7 @@ public class CmdListener implements WorkerCmd {
     @Override
     public void run(EpochW ew) {
         //Client -> Master -> Worker.run(EpochW)
-        L.info("Worker: call "+ew);
+//        L.info("Worker: call "+ew);
         SRuntime runtime = SRuntimeWorker.getInst();
         Epoch e = ew.get();
         prepare(runtime, e);

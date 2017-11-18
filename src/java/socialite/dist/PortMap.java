@@ -8,7 +8,7 @@ import java.util.Random;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.net.NetUtils;
-import socialite.yarn.SocialiteAppMasterClient;
+import socialite.yarn.ClusterConf;
 
 
 public abstract class PortMap {
@@ -140,10 +140,9 @@ abstract class RemoteMasterPortMap extends PortMap {
 
 class WorkerPortMap extends RemoteMasterPortMap {
     WorkerPortMap() {
-        SocialiteAppMasterClient cli = SocialiteAppMasterClient.get();
-        master = cli.getHost();//远程主机只能调用cli.getHost()获取主机名称来连接
+        master = ClusterConf.get().getHost();//远程主机只能调用cli.getHost()获取主机名称来连接
         for (String proto : new String[]{"query", "workerReq", "tupleReq"}) {
-            masterPortMap.put(proto, cli.getPort(proto));
+            masterPortMap.put(proto, ClusterConf.get().getPort(proto));
         }
 
         int basePort = DEFAULT_BASE_PORT + new Random().nextInt(97);
@@ -155,10 +154,9 @@ class WorkerPortMap extends RemoteMasterPortMap {
 
 class ClientPortMap extends RemoteMasterPortMap {
     ClientPortMap() {
-        SocialiteAppMasterClient cli = SocialiteAppMasterClient.get();
-        master = cli.getHost();
+        master = ClusterConf.get().getHost();
         for (String proto : new String[]{"query", "workerReq"}) {
-            masterPortMap.put(proto, cli.getPort(proto));
+            masterPortMap.put(proto, ClusterConf.get().getPort(proto));
         }
 
         int basePort = DEFAULT_BASE_PORT + new Random().nextInt(97);
