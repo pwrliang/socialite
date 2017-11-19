@@ -15,14 +15,21 @@ public class AsyncWorker {
     private DistAsyncRuntime distAsyncRuntime;
 
     public AsyncWorker() throws InterruptedException {
-        while (SRuntimeWorker.getInst() == null)
-            Thread.sleep(100);
-        L.info("Worker ready");
         distAsyncRuntime = new DistAsyncRuntime();
     }
 
     public void startWorker() {
+        while (SRuntimeWorker.getInst() == null) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
         int myWorkerId = ClusterConf.get().getRank() - 1;
+
+        L.info(String.format("worker %d online", myWorkerId));
         distAsyncRuntime.run();
         L.info("worker " + myWorkerId + " saving...");
 

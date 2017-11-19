@@ -67,6 +67,9 @@ public class DistAsyncEngine implements Runnable {
                 }
         }
         clientEngine.run(datalogStats.toString());
+
+        networkThread = new NetworkThread();
+        networkThread.start();
     }
 
     private void compile() {
@@ -79,7 +82,6 @@ public class DistAsyncEngine implements Runnable {
     @Override
     public void run() {
         compile();
-        networkThread = new NetworkThread();
         sendCmd();
         FeedBackThread feedBackThread = new FeedBackThread();
         feedBackThread.start();
@@ -93,12 +95,15 @@ public class DistAsyncEngine implements Runnable {
 
     private void sendCmd() {
         List<String> initStats = asyncCodeGenMain.getInitStats();
-        if (!AsyncConfig.get().isDebugging())
-            initStats.forEach(initStat -> clientEngine.run(initStat));
         Map<Integer, Integer> myIdxWorkerIdMap = new HashMap<>();
         SerializeTool serializeTool = new SerializeTool.Builder().build();
+
+        if (!AsyncConfig.get().isDebugging())
+            initStats.forEach(initStat -> clientEngine.run(initStat));
+
         IntStream.rangeClosed(1, workerNum).forEach(source -> {
             byte[] data = networkThread.read(source, MsgType.REPORT_MYIDX.ordinal());
+            L.info("recved");
             int[] myIdxWorkerId = new int[2];
             myIdxWorkerId = serializeTool.fromBytes(data, myIdxWorkerId.getClass());
 //            MPI.COMM_WORLD.Recv(buff, 0, 2, MPI.INT, source, MsgType.REPORT_MYIDX.ordinal());

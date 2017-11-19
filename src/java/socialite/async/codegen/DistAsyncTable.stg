@@ -45,8 +45,8 @@ public class DistAsyncTable extends BaseDistAsyncTable{
     <endif>
 
 
-    public DistAsyncTable(Class\<?> messageTableClass, DistTableSliceMap sliceMap, int indexForTableId, int[] myIdxWorkerIdMap) {
-        super(messageTableClass, sliceMap, indexForTableId, myIdxWorkerIdMap);
+    public DistAsyncTable(Class\<?> messageTableClass, DistTablePartitionMap partitionMap, int indexForTableId, int[] myIdxWorkerIdMap) {
+        super(messageTableClass, partitionMap, indexForTableId, myIdxWorkerIdMap);
 
 
         <if(dynamic || !IsKeyAsIndex.(keyType))>
@@ -70,8 +70,8 @@ public class DistAsyncTable extends BaseDistAsyncTable{
        <if(IsBoolean.(valueType))>sentFlagList = new ArrayList\<>();<endif>
     }
 
-    public DistAsyncTable(Class\<?> messageTableClass, DistTableSliceMap sliceMap, int indexForTableId, int[] myIdxWorkerIdMap, int base) {
-        this(messageTableClass, sliceMap, indexForTableId, myIdxWorkerIdMap);
+    public DistAsyncTable(Class\<?> messageTableClass, DistTablePartitionMap partitionMap, int indexForTableId, int[] myIdxWorkerIdMap, int base) {
+        this(messageTableClass, partitionMap, indexForTableId, myIdxWorkerIdMap);
         this.base = base;
     }
 
@@ -106,7 +106,7 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                 <! 遍历每个邻接点 !>
                 for(int i = 0; i \< adjacencies.size(); i++){
                     <keyType> adjacency = adjacencies.get(i);
-                    if(sliceMap.isLocal(indexForTableId, adjacency)){
+                    if(partitionMap.isLocal(indexForTableId, adjacency)){
                         int adjacentLocalInd;
                         synchronized(keyIndMap) {
                             if(keyIndMap.contains(adjacency))
@@ -123,7 +123,7 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                             <if(IsCount.(aggrType))>deltaList.get(adjacentLocalInd).addAndGet(1);<endif>
                         }
                     } else {
-                        int belongToWorkerId = myIdxWorkerIdMap[sliceMap.machineIndexFor(indexForTableId, adjacency)];
+                        int belongToWorkerId = myIdxWorkerIdMap[partitionMap.machineIndexFor(indexForTableId, adjacency)];
                         MessageTable messageTable = (MessageTable)getWritableMessageTable(belongToWorkerId);
                         messageTable.apply(adjacency, 1);
                     }
@@ -131,7 +131,7 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                         <! OTHER AGGREGATE FUNCTIONS IS NOT SUPPORTED !>
                         <if(IsCount.(aggrType))>deltaList.get(adjacentLocalInd).addAndGet(1);<endif>
                     } else {
-                        int belongToWorkerId = myIdxWorkerIdMap[sliceMap.machineIndexFor(indexForTableId, adjacency)];
+                        int belongToWorkerId = myIdxWorkerIdMap[partitionMap.machineIndexFor(indexForTableId, adjacency)];
                         MessageTable messageTable = (MessageTable)getWritableMessageTable(belongToWorkerId);
                         messageTable.apply(adjacency, 1);
                     }
@@ -179,7 +179,7 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                 <valueType> newDelta = eval(oldDelta <if(weightType)>, weights.get(i)<endif> <if(extraType)>, extra<endif>);
                 <endif>
                 <keyType> adjacency = adjacencies.get(i);
-                if(sliceMap.isLocal(indexForTableId, <if(IsPairKey.(keyType))>adjacency.getV0()<else>adjacency<endif>)) {
+                if(partitionMap.isLocal(indexForTableId, <if(IsPairKey.(keyType))>adjacency.getV0()<else>adjacency<endif>)) {
                     int adjacentLocalInd;
                     <!when use int as key, use key as index!>
                     <if(dynamic || !IsKeyAsIndex.(keyType))>
@@ -214,9 +214,9 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                         }
                     } else {
                         <if(IsPairKey.(keyType))>
-                        int belongToWorkerId = myIdxWorkerIdMap[sliceMap.machineIndexFor(indexForTableId, adjacency.getV0())];
+                        int belongToWorkerId = myIdxWorkerIdMap[partitionMap.machineIndexFor(indexForTableId, adjacency.getV0())];
                         <else>
-                        int belongToWorkerId = myIdxWorkerIdMap[sliceMap.machineIndexFor(indexForTableId, adjacency)];
+                        int belongToWorkerId = myIdxWorkerIdMap[partitionMap.machineIndexFor(indexForTableId, adjacency)];
                         <endif>
                         MessageTable messageTable = (MessageTable)getWritableMessageTable(belongToWorkerId);
                         messageTable.apply(adjacency, newDelta);
@@ -228,9 +228,9 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                             <if(IsCount.(aggrType))>deltaList.get(adjacentLocalInd).addAndGet(newDelta);<endif>
                         } else {
                             <if(IsPairKey.(keyType))>
-                            int belongToWorkerId = myIdxWorkerIdMap[sliceMap.machineIndexFor(indexForTableId, adjacency.getV0())];
+                            int belongToWorkerId = myIdxWorkerIdMap[partitionMap.machineIndexFor(indexForTableId, adjacency.getV0())];
                             <else>
-                            int belongToWorkerId = myIdxWorkerIdMap[sliceMap.machineIndexFor(indexForTableId, adjacency)];
+                            int belongToWorkerId = myIdxWorkerIdMap[partitionMap.machineIndexFor(indexForTableId, adjacency)];
                             <endif>
                             MessageTable messageTable = (MessageTable)getWritableMessageTable(belongToWorkerId);
                             messageTable.apply(adjacency, newDelta);
@@ -472,31 +472,7 @@ public class DistAsyncTable extends BaseDistAsyncTable{
     }
 
     @Override
-	public void iterate(VisitorImpl visitor) {
-		for (int i=0; i\<size; i++) {
-	        <if(dynamic || !IsKeyAsIndex.(keyType))>
-                <if(IsPairKey.(keyType))>
-                    Pair pair = indKeyMap.get(i);
-                    <! reverse key to print right answer !>
-                    if (!visitor.visit(pair.toReversedString(), valueList.get(i), deltaList.get(i).<deltaType>Value()))
-                        break;
-                <elseif(IsBoolean.(valueType))>
-                    if(valueList.get(i))
-                        if (!visitor.visit(indKeyMap.get(i)))
-                            break;
-                <else>
-                    if(!visitor.visit(indKeyMap.get(i), valueList.get(i), deltaList.get(i).<deltaType>Value()))
-                        break;
-                <endif>
-            <else>
-                if (!visitor.visit(i + base, valueList.get(i), deltaList.get(i).<deltaType>Value()))
-                    break;
-		    <endif>
-		}
-	}
-
-    @Override
-	public void iterateTuple(QueryVisitor queryVisitor){
+	public void iterate(QueryVisitor queryVisitor){
 	    Tuple tuple;
 	    for (int i=0; i\<size; i++) {
             <if(dynamic || !IsKeyAsIndex.(keyType))>

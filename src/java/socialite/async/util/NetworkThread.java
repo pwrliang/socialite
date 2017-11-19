@@ -4,6 +4,9 @@ import mpi.MPI;
 import mpi.MPIException;
 import mpi.Request;
 import mpi.Status;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import socialite.async.engine.DistAsyncEngine;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -60,6 +63,7 @@ class RecvRequest {
 }
 
 public class NetworkThread extends Thread {
+    private static final Log L = LogFactory.getLog(NetworkThread.class);
     private final ConcurrentLinkedQueue<SendRequest> sendQueue = new ConcurrentLinkedQueue<>();
     private final List<Request> activeSends = new LinkedList<>();
     private final List<RecvRequest> recvList = new LinkedList<>();
@@ -67,7 +71,7 @@ public class NetworkThread extends Thread {
 
     @Override
     public void run() {
-        System.out.println("network thread started");
+        L.info("network thread started");
         try {
             loop();
         } catch (MPIException e) {
@@ -116,6 +120,8 @@ public class NetworkThread extends Thread {
     }
 
     public void send(byte[] data, int dest, int tag) {
+        if (shutdown)
+            throw new RuntimeException("The network thread already shutdown");
         SendRequest sendRequest = new SendRequest(data, dest, tag);
         sendQueue.add(sendRequest);
     }

@@ -47,11 +47,11 @@ public class WorkerNode extends Thread {
         initRecvThread();
         startListen();
         register();
-        try {
-            join();
-        } catch (InterruptedException e) {
-            L.info("Terminating WorkerNode:" + e);
-        }
+//        try {
+//            join();
+//        } catch (InterruptedException e) {
+//            L.info("Terminating WorkerNode:" + e);
+//        }
     }
 
     void initNetworkResources() {
