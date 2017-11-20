@@ -4,12 +4,12 @@ import os
 import re
 import socket
 
-# SOCIALITE_PREFIX = os.getenv('SOCIALITE_PREFIX')
-# JAVA_HOME = os.getenv('JAVA_HOME')
-# MPI_HOME = os.getenv("MPI_HOME")
-SOCIALITE_PREFIX = '/home/gongsf/socialite'
-JAVA_HOME = '/home/gongsf/jdk1.8.0_144'
-MPI_HOME = '/home/gongsf/openmpi-2.1.2'
+SOCIALITE_PREFIX = os.getenv('SOCIALITE_PREFIX')
+JAVA_HOME = os.getenv('JAVA_HOME')
+MPI_HOME = os.getenv("MPI_HOME")
+# SOCIALITE_PREFIX = '/home/gongsf/socialite'
+# JAVA_HOME = '/home/gongsf/jdk1.8.0_144'
+# MPI_HOME = '/home/gongsf/openmpi-2.1.2'
 
 MACHINE_FILE = SOCIALITE_PREFIX + '/conf/machines'
 CLASS_PATH_LIST = []
@@ -18,7 +18,7 @@ HOST_NAME = socket.gethostname()
 MASTER_HOSTNAME = None
 WORKER_HOSTNAME_LIST = []
 WORKER_NUM = 0
-HEAP_SIZE = 4096
+HEAP_SIZE = 6000
 THREAD_NUM = 4
 
 error_var = None

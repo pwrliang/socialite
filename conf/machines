@@ -1,3 +1,5 @@
-gengl slots=4
-hadoop0 slots=4
-hadoop1 slots=4
+master slots=2
+hadoop0 slots=1
+hadoop1 slots=1
+hadoop2 slots=1
+hadoop3 slots=1

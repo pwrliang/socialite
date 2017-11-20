@@ -1197,22 +1197,25 @@ public class JoinerCodeGen {
         ifLocalElse.add("cond", partitionMapVar() + ".isLocal(" + t.id() + "," + headP.first() + ")");
         ST ifLocal = tmplGroup.getInstanceOf("simpleStmts");
         ifLocalElse.add("stmts", ifLocal);
+        //TODO Still need more test
+        //Liang: This is a optimization for rule like "edge(x, y) :- (x, y)=read()....", because every worker only need load data locally, send data to remote node is useless.
+        //if(!rule.isLoadRule()) {
+            RemoteHeadTable rt = remoteHeadT();
+            String tableCls = rt.className();
+            ifLocalElse.add("elseStmts", tableCls + " _$remoteT");
+            ifLocalElse.add("elseStmts", "int _$machineIdx=" + partitionMapVar() +
+                    ".machineIndexFor(" + rt.origId() + "," + headP.first() + ")");
+            ifLocalElse.add("elseStmts", "_$remoteT=" + getRemoteHeadTable(headP.first()));
 
-        RemoteHeadTable rt = remoteHeadT();
-        String tableCls = rt.className();
-        ifLocalElse.add("elseStmts", tableCls + " _$remoteT");
-        ifLocalElse.add("elseStmts", "int _$machineIdx=" + partitionMapVar() +
-                ".machineIndexFor(" + rt.origId() + "," + headP.first() + ")");
-        ifLocalElse.add("elseStmts", "_$remoteT=" + getRemoteHeadTable(headP.first()));
+            ST stmts = tmplGroup.getInstanceOf("simpleStmts");
+            ifLocalElse.add("elseStmts", stmts);
 
-        ST stmts = tmplGroup.getInstanceOf("simpleStmts");
-        ifLocalElse.add("elseStmts", stmts);
+            stmts.add("stmts", call("_$remoteT", "insert", headP.inputParams()));
 
-        stmts.add("stmts", call("_$remoteT", "insert", headP.inputParams()));
-
-        ST maybeSend = tmplGroup.getInstanceOf("simpleStmts");
-        ifLocalElse.add("elseStmts", maybeSend);
+            ST maybeSend = tmplGroup.getInstanceOf("simpleStmts");
+            ifLocalElse.add("elseStmts", maybeSend);
         maybeSendToRemoteHead(maybeSend, "_$remoteT", "_$machineIdx", headP.first());
+        //}
         return ifLocal;
     }
 

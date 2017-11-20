@@ -37,6 +37,7 @@ public class Rule implements Externalizable {
     private boolean hasPipelined = false;
     private boolean asyncEval = false;
     private boolean hasPartitionOpt;
+    private boolean loadRule;//Liang: e.g. edge(x, y) :- (x, y) = read(xxxx)
     private Table partitionTable;//serializable
     private Predicate partitionPredicate;
 
@@ -58,6 +59,14 @@ public class Rule implements Externalizable {
 
     public boolean isAsyncEval() {
         return asyncEval;
+    }
+
+    public void setLoadRule() {
+        loadRule = true;
+    }
+
+    public boolean isLoadRule() {
+        return loadRule;
     }
 
     public void setPartitionTable(Table t, Predicate p) {
@@ -386,6 +395,7 @@ public class Rule implements Externalizable {
         simpleArrayInit = in.readBoolean();
         hasPipelined = in.readBoolean();
         asyncEval = in.readBoolean();
+        loadRule = in.readBoolean();
         hasPartitionOpt = in.readBoolean();
         if (hasPartitionOpt) {
             partitionTable = (Table) in.readObject();
@@ -402,6 +412,7 @@ public class Rule implements Externalizable {
         out.writeBoolean(simpleArrayInit);
         out.writeBoolean(hasPipelined);
         out.writeBoolean(asyncEval);
+        out.writeBoolean(loadRule);
         if (partitionTable != null && partitionPredicate != null) {
             hasPartitionOpt = true;
         }
