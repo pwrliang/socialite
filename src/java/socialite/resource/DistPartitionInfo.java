@@ -183,8 +183,11 @@ class DistHashPartitionInfo implements PartitionInfo {
         if (t instanceof GeneratedT) {
             return 1;
         } else {
-            assert BitUtils.isPowerOf2(map.defaultPartitionNum);
-            return map.defaultPartitionNum;
+//            assert BitUtils.isPowerOf2(map.defaultPartitionNum);
+//            return map.defaultPartitionNum;
+            int totalPartitionNum = map.defaultPartitionNum * ClusterConf.get().getMaxNumWorkers();
+            assert BitUtils.isPowerOf2(totalPartitionNum);
+            return totalPartitionNum;
         }
     }
 
