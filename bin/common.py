@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 import os
 import re
-import sys
+import socket
 
 # SOCIALITE_PREFIX = os.getenv('SOCIALITE_PREFIX')
 # JAVA_HOME = os.getenv('JAVA_HOME')
@@ -14,6 +14,7 @@ MPI_HOME = '/home/gongsf/openmpi-2.1.2'
 MACHINE_FILE = SOCIALITE_PREFIX + '/conf/machines'
 CLASS_PATH_LIST = []
 ENTRY_CLASS_PATH = SOCIALITE_PREFIX + '/out/production/socialite'
+HOST_NAME = socket.gethostname()
 MASTER_HOSTNAME = None
 WORKER_HOSTNAME_LIST = []
 WORKER_NUM = 0
@@ -49,6 +50,9 @@ with open(MACHINE_FILE, 'r') as fi:
             else:
                 WORKER_HOSTNAME_LIST.append(host_name)
                 WORKER_NUM += slots
+
+if HOST_NAME != MASTER_HOSTNAME:
+    raise EnvironmentError("Run this script in master node or correct the [conf/machines] file")
 
 
 def add_class_path(root):

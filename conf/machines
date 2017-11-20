@@ -1,2 +1,3 @@
 gengl slots=4
-gengl slots=4
+hadoop0 slots=4
+hadoop1 slots=4
