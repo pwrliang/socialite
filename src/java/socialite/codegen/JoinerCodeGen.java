@@ -1,11 +1,8 @@
 package socialite.codegen;
 
-import java.util.*;
-
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.STGroup;
-
 import socialite.dist.master.MasterNode;
 import socialite.parser.*;
 import socialite.parser.antlr.ColumnGroup;
@@ -13,6 +10,8 @@ import socialite.resource.SRuntimeMaster;
 import socialite.tables.TableUtil;
 import socialite.util.Assert;
 import socialite.yarn.ClusterConf;
+
+import java.util.*;
 
 public class JoinerCodeGen {
     static String joinerPackage = "socialite.tables";
@@ -53,11 +52,13 @@ public class JoinerCodeGen {
 
         resolvedVarsArray = Analysis.getResolvedVars(rule);
     }
+
     boolean isDistributed() {
         return MasterNode.getInstance() != null;
     }
+
     String getVisitMethodSig(Predicate p, String visitName, Class... types) {
-        String sig = p.name()+"."+p.getPos()+"."+visitName+"#";
+        String sig = p.name() + "." + p.getPos() + "." + visitName + "#";
         for (Class type : types) {
             sig += "#" + type.getSimpleName();
         }
@@ -86,6 +87,7 @@ public class JoinerCodeGen {
         m.add("name", name);
         return m;
     }
+
     ST getNewMethodTmpl(String name, String type) {
         return getNewMethodTmpl(name, "public", type);
     }
@@ -105,8 +107,11 @@ public class JoinerCodeGen {
     boolean isGenerated() {
         return joinerTmpl.getAttribute("name") != null;
     }
+
     public String generate() {
-        if (isGenerated()) { return joinerTmpl.render(); }
+        if (isGenerated()) {
+            return joinerTmpl.render();
+        }
 
         joinerTmpl.add("packageStmt", "package " + joinerPackage);
         joinerTmpl.add("modifier", "public");
@@ -129,7 +134,9 @@ public class JoinerCodeGen {
             String tableClass = t.className();
 
             joinerTmpl.add("imports", TableUtil.getTablePath(tableClass));
-            if (isTablePartitioned(t)) { tableClass += "[]"; }
+            if (isTablePartitioned(t)) {
+                tableClass += "[]";
+            }
             joinerTmpl.add("fieldDecls", tableClass + " " + var);
         }
         maybeDeclareDeltaTable();
@@ -139,7 +146,7 @@ public class JoinerCodeGen {
         joinerTmpl.add("fieldDecls", decl("int", ruleIdVar()));
         joinerTmpl.add("fieldDecls", decl("TableInstRegistry", registryVar()));
         joinerTmpl.add("fieldDecls", decl("TablePartitionMap", partitionMapVar()));
-        for (Const c:rule.getConsts()) {
+        for (Const c : rule.getConsts()) {
             String type = MyType.javaTypeName(c);
             joinerTmpl.add("fieldDecls", decl(type, c));
         }
@@ -151,14 +158,16 @@ public class JoinerCodeGen {
         declareVisitorVars();
         declareConstraintVars();
     }
+
     void declareVisitorVars() {
-        for (Predicate p:rule.getBodyP()) {
+        for (Predicate p : rule.getBodyP()) {
             Table t = getTable(p);
             joinerTmpl.add("fieldDecls", decl(t.visitorClass(), visitorVar(p)));
         }
     }
+
     void declareConstraintVars() {
-        for (Predicate p:rule.getBodyP()) {
+        for (Predicate p : rule.getBodyP()) {
             Table t = getTable(p);
             if (t.hasIndexby() || t.hasSortby()) {
                 joinerTmpl.add("fieldDecls", decl("ColumnConstraints", constraintVar(p)));
@@ -168,14 +177,18 @@ public class JoinerCodeGen {
 
     void declareParamVariables() {
         for (Variable v : rule.getBodyVariables()) {
-            if (!v.isRealVar()) { continue; }
+            if (!v.isRealVar()) {
+                continue;
+            }
             String type = MyType.javaTypeName(v);
             joinerTmpl.add("fieldDecls", decl(type, v));
         }
     }
 
     void maybeDeclareDeltaTable() {
-        if (!accumlDelta(rule)) { return; }
+        if (!accumlDelta(rule)) {
+            return;
+        }
 
         String tableClass = deltaHeadT.className();
         joinerTmpl.add("fieldDecls", decl(tableClass, deltaTableVar()));
@@ -188,24 +201,30 @@ public class JoinerCodeGen {
     }
 
     void declareRemoteBodyTablesIfAny() {
-        if (!isDistributed()) { return; }
+        if (!isDistributed()) {
+            return;
+        }
         for (int pos : tableTransferPos()) {
             String tableCls = tableMap.get(RemoteBodyTable.name(rule, pos)).className();
-            String init = "= new "+tableCls+"["+machineNum()+"]";
-            joinerTmpl.add("fieldDecls", decl(tableCls+"[]", remoteTableVar(pos))+init);
+            String init = "= new " + tableCls + "[" + machineNum() + "]";
+            joinerTmpl.add("fieldDecls", decl(tableCls + "[]", remoteTableVar(pos)) + init);
         }
     }
 
     void declareRemoteHeadTableIfAny() {
-        if (!isDistributed()) { return; }
-        if (!hasRemoteRuleHead()) { return; }
+        if (!isDistributed()) {
+            return;
+        }
+        if (!hasRemoteRuleHead()) {
+            return;
+        }
 
         Table t = headT;
         String tableCls = tableMap.get(RemoteHeadTable.name(t, rule)).className();
         int clusterSize = SRuntimeMaster.getInst().getWorkerAddrMap().size();
 
         String init = "=new " + tableCls + "[" + clusterSize + "]";
-        joinerTmpl.add("fieldDecls", decl(tableCls+"[]", remoteTableVar("head"))+init);
+        joinerTmpl.add("fieldDecls", decl(tableCls + "[]", remoteTableVar("head")) + init);
     }
 
     String deltaTableReturnVar() {
@@ -217,7 +236,9 @@ public class JoinerCodeGen {
     }
 
     boolean accumlDelta(Rule r) {
-        if (r.inScc()) { return true; }
+        if (r.inScc()) {
+            return true;
+        }
         if (r.hasPipelinedRules()) {
             return true;
         }
@@ -231,16 +252,18 @@ public class JoinerCodeGen {
     String concat(String prefix, Object o) {
         return prefix + o;
     }
+
     String cast(String type) {
-        return "("+type+")";
+        return "(" + type + ")";
     }
+
     void generateConstructor() {
         ST code = getNewMethodTmpl(joinerName, "");
         joinerTmpl.add("methodDecls", code);
 
         code.add("args", decl("int", concat("_", epochIdVar())));
         code.add("args", decl("int", concat("_", ruleIdVar())));
-        for (Const c:rule.getConsts()) {
+        for (Const c : rule.getConsts()) {
             String argVar = concat("_$", c);
             code.add("args", decl(c.type, argVar));
             code.add("stmts", init(c, argVar));
@@ -267,28 +290,31 @@ public class JoinerCodeGen {
 
         for (Predicate p : rule.getAllP()) {
             Table t = getTable(p);
-            if (t instanceof GeneratedT) { continue; }
+            if (t instanceof GeneratedT) {
+                continue;
+            }
             String var = getVarName(p);
             String tableClass = t.className();
             if (isTablePartitioned(t)) {
-                tableClass+="[]";
+                tableClass += "[]";
             }
-            code.add("stmts", init(var, cast(tableClass)+call(registryVar(), "getTableInstArray", t.id())));
+            code.add("stmts", init(var, cast(tableClass) + call(registryVar(), "getTableInstArray", t.id())));
         }
 
-        for (Predicate p:rule.getBodyP()) {
+        for (Predicate p : rule.getBodyP()) {
             ST newVisitor = createNewVisitor(p);
 
             newVisitor.add("var", visitorVar(p));
             code.add("stmts", newVisitor);
         }
-        for (Predicate p:rule.getBodyP()) {
+        for (Predicate p : rule.getBodyP()) {
             Table t = getTable(p);
             if (t.hasIndexby() || t.hasSortby()) {
                 code.add("stmts", createNewConstraints(p));
             }
         }
     }
+
     ST createNewVisitor(Predicate p) {
         ST visitor = visitorMap.get(p);
         if (visitor == null) {
@@ -299,6 +325,7 @@ public class JoinerCodeGen {
         }
         return visitor;
     }
+
     String createNewConstraints(Predicate p) {
         Table t = getTable(p);
         String buildConstr = constraintVar(p);
@@ -318,7 +345,7 @@ public class JoinerCodeGen {
     void generateToString() {
         ST code = getNewMethodTmpl("toString", "String");
         String ruleStr = StringEscapeUtils.escapeJava(rule.toString());
-        code.add("stmts", "String str=\"" + ruleStr + " epoch:\"+"+epochIdVar());
+        code.add("stmts", "String str=\"" + ruleStr + " epoch:\"+" + epochIdVar());
         code.add("ret", "return str");
         joinerTmpl.add("methodDecls", code);
     }
@@ -334,6 +361,7 @@ public class JoinerCodeGen {
         }
         return method;
     }
+
     String getRemoteTableMethod(Object suffix) {
         String method = "getRemoteTable_";
         if (suffix != null)
@@ -363,7 +391,7 @@ public class JoinerCodeGen {
 
     void genGetDeltaTableArrayReally(ST method) {
         if (accumlDelta(rule)) {
-            method.add("stmts", "return new TableInst[]{"+deltaTableReturnVar()+"}");
+            method.add("stmts", "return new TableInst[]{" + deltaTableReturnVar() + "}");
         } else {
             method.add("stmts", "return null");
         }
@@ -389,34 +417,36 @@ public class JoinerCodeGen {
         String deltaCls = deltaHeadT.className();
         String alloc;
         if (hasPipelinedRules())
-            alloc="("+deltaCls+")"+TmpTablePool_get()+"Small("+deltaCls+".class)";
-        else alloc="("+deltaCls+")"+TmpTablePool_get()+"(getWorkerId(),"+deltaCls+".class,"+priority+")";
+            alloc = "(" + deltaCls + ")" + TmpTablePool_get() + "Small(" + deltaCls + ".class)";
+        else
+            alloc = "(" + deltaCls + ")" + TmpTablePool_get() + "(getWorkerId()," + deltaCls + ".class," + priority + ")";
 
-        if_.add("stmts", deltaVar+"="+alloc);
-        if_.add("stmts", deltaRetVar+"="+deltaVar+".isEmpty()?"+deltaVar+":null");
+        if_.add("stmts", deltaVar + "=" + alloc);
+        if_.add("stmts", deltaRetVar + "=" + deltaVar + ".isEmpty()?" + deltaVar + ":null");
 
         if_ = tmplGroup.getInstanceOf("if");
         method.add("stmts", if_);
 
-        if_.add("cond", deltaVar+".vacancy()==0");
+        if_.add("cond", deltaVar + ".vacancy()==0");
         if (hasPipelinedRules()) {
             addPipeliningCode(if_, deltaVar);
-            if_.add("stmts", deltaVar+".clear()");
-            if_.add("stmts", "TmpTablePool.free(getWorkerId(), "+deltaVar+")");
-            if_.add("stmts", deltaVar+"="+alloc);
-            if_.add("stmts", deltaRetVar+"="+deltaVar);
+            if_.add("stmts", deltaVar + ".clear()");
+            if_.add("stmts", "TmpTablePool.free(getWorkerId(), " + deltaVar + ")");
+            if_.add("stmts", deltaVar + "=" + alloc);
+            if_.add("stmts", deltaRetVar + "=" + deltaVar);
         } else {
-            String cond= "if("+deltaRetVar+"!=null)";
-            if_.add("stmts", cond+" getWorker().addTasksForDelta(getRuleId(),"+deltaVar+", "+priority+")");
-            if_.add("stmts", deltaVar+"="+alloc);
-            if_.add("stmts", deltaRetVar+"="+deltaVar+".isEmpty()?"+deltaVar+":null");
+            String cond = "if(" + deltaRetVar + "!=null)";
+            if_.add("stmts", cond + " getWorker().addTasksForDelta(getRuleId()," + deltaVar + ", " + priority + ")");
+            if_.add("stmts", deltaVar + "=" + alloc);
+            if_.add("stmts", deltaRetVar + "=" + deltaVar + ".isEmpty()?" + deltaVar + ":null");
         }
         method.add("ret", "return " + deltaVar);
     }
+
     void addPipeliningCode(ST code, String deltaVar) {
-        String deltaRulesArray=runtimeVar()+".getRuleMap(getRuleId()).getDeltaRules(getRuleId()).toArray()";
+        String deltaRulesArray = runtimeVar() + ".getRuleMap(getRuleId()).getDeltaRules(getRuleId()).toArray()";
         ST forEachDepRule = tmplGroup.getInstanceOf("forEach");
-        code.add("stmts", deltaVar+".setReuse(false)");
+        code.add("stmts", deltaVar + ".setReuse(false)");
 
         code.add("stmts", forEachDepRule);
         forEachDepRule.add("set", deltaRulesArray);
@@ -424,14 +454,15 @@ public class JoinerCodeGen {
 
         ST forEachVisitor = tmplGroup.getInstanceOf("forEach");
         forEachDepRule.add("stmts", forEachVisitor);
-        String visitors = runtimeVar()+".getJoinerBuilder(_$pr).getNewJoinerInst(_$pr, new TableInst[]{"+deltaVar+"})";
+        String visitors = runtimeVar() + ".getJoinerBuilder(_$pr).getNewJoinerInst(_$pr, new TableInst[]{" + deltaVar + "})";
         forEachVisitor.add("set", visitors);
         forEachVisitor.add("elem", "IVisitor _$v");
         forEachVisitor.add("stmts", "_$v.setWorker(getWorker())");
         forEachVisitor.add("stmts", "try { _$v.run(); } catch (SocialiteFinishEval e) {}");
 
-        code.add("stmts", deltaVar+".setReuse(true)");
+        code.add("stmts", deltaVar + ".setReuse(true)");
     }
+
     boolean hasPipelinedRules() {
         return rule.hasPipelinedRules();
     }
@@ -469,7 +500,7 @@ public class JoinerCodeGen {
 
     void genGetRemoteBodyTable() {
         for (int pos : tableTransferPos()) {
-            RemoteBodyTable rt = (RemoteBodyTable)tableMap.get(RemoteBodyTable.name(rule, pos));
+            RemoteBodyTable rt = (RemoteBodyTable) tableMap.get(RemoteBodyTable.name(rule, pos));
             String tableCls = rt.className();
 
             // generating get method
@@ -480,15 +511,15 @@ public class JoinerCodeGen {
 
             Predicate nextP = (Predicate) rule.getBody().get(pos);
             Table joinT = tableMap.get(nextP.name());
-            String machineIdx = partitionMapVar() + ".machineIndexFor("+joinT.id()+", rangeOrHash)";
+            String machineIdx = partitionMapVar() + ".machineIndexFor(" + joinT.id() + ", rangeOrHash)";
             method.add("stmts", "int _$machineIdx=" + machineIdx);
-            method.add("stmts", tableCls+" _$remoteT="+remoteTableVar(pos)+"[_$machineIdx]");
+            method.add("stmts", tableCls + " _$remoteT=" + remoteTableVar(pos) + "[_$machineIdx]");
 
             // alloc table
-            ST if_= tmplGroup.getInstanceOf("if");
+            ST if_ = tmplGroup.getInstanceOf("if");
             method.add("stmts", if_);
             if_.add("cond", "_$remoteT==null");
-            if_.add("stmts", "_$remoteT=("+tableCls+")"+TmpTablePool_get()+"(worker.id(),"+tableCls+".class)");
+            if_.add("stmts", "_$remoteT=(" + tableCls + ")" + TmpTablePool_get() + "(worker.id()," + tableCls + ".class)");
             if_.add("stmts", remoteTableVar(pos) + "[_$machineIdx]=_$remoteT");
 
             method.add("ret", "return _$remoteT");
@@ -497,7 +528,7 @@ public class JoinerCodeGen {
             method = getNewMethodTmpl(nullifyRemoteTableMethod(pos), "void");
             joinerTmpl.add("methodDecls", method);
             method.add("args", "int machineIdx");
-            method.add("stmts", remoteTableVar(pos)+"[machineIdx]=null");
+            method.add("stmts", remoteTableVar(pos) + "[machineIdx]=null");
         }
     }
 
@@ -542,24 +573,24 @@ public class JoinerCodeGen {
 
     void genGetRemoteHeadTableReally(ST method, RemoteHeadTable rt, String tableCls) {
         // generating getRemoteTable_head (int _$rangeOrHash)
-        String machineIdx = partitionMapVar()+".machineIndexFor("+rt.origId()+", _$rangeOrHash)";
-        method.add("stmts", "int _$machineIdx="+machineIdx);
-        String getter = tableCls+" _$remoteT="+remoteTableVar("head")+"[_$machineIdx]";
+        String machineIdx = partitionMapVar() + ".machineIndexFor(" + rt.origId() + ", _$rangeOrHash)";
+        method.add("stmts", "int _$machineIdx=" + machineIdx);
+        String getter = tableCls + " _$remoteT=" + remoteTableVar("head") + "[_$machineIdx]";
         method.add("stmts", getter);
 
         ST if_ = tmplGroup.getInstanceOf("if");
         method.add("stmts", if_);
         if_.add("cond", "_$remoteT==null");
-        if_.add("stmts", "_$remoteT=("+tableCls+")"+TmpTablePool_get()+"(worker.id(),"+tableCls+".class)");
-        if_.add("stmts", remoteTableVar("head")+"[_$machineIdx]=_$remoteT");
+        if_.add("stmts", "_$remoteT=(" + tableCls + ")" + TmpTablePool_get() + "(worker.id()," + tableCls + ".class)");
+        if_.add("stmts", remoteTableVar("head") + "[_$machineIdx]=_$remoteT");
 
         method.add("ret", "return _$remoteT");
     }
 
     String TmpTablePool_get() {
-        if (rule.firstP()==null) return "TmpTablePool.get";
+        if (rule.firstP() == null) return "TmpTablePool.get";
 
-        Table t=tableMap.get(rule.firstP().name());
+        Table t = tableMap.get(rule.firstP().name());
         if (t instanceof RemoteBodyTable || t instanceof RemoteHeadTable) {
             return "TmpTablePool.__get";
         } else if (rule instanceof DeltaRule) {
@@ -568,12 +599,13 @@ public class JoinerCodeGen {
             return "TmpTablePool.get";
         }
     }
+
     void genNullifyRemoteHeadTableReally(ST method, RemoteHeadTable rt, String tableCls) {
         // generating nullifyRemoteTable_head (int _$machineIdx)
-        String getter = tableCls+" _$remoteT="+remoteTableVar("head")+"[_$machineIdx]";
+        String getter = tableCls + " _$remoteT=" + remoteTableVar("head") + "[_$machineIdx]";
         method.add("stmts", getter);
         method.add("stmts", "assert _$remoteT!=null");
-        method.add("stmts", remoteTableVar("head")+"[_$machineIdx]=null");
+        method.add("stmts", remoteTableVar("head") + "[_$machineIdx]=null");
     }
 
     DeltaPredicate getFirstPifDelta() {
@@ -592,10 +624,10 @@ public class JoinerCodeGen {
                                String machineIdx, Object idxParam) {
         ST if_ = tmplGroup.getInstanceOf("if");
         code.add("stmts", if_);
-        if_.add("cond", table+".vacancy()==0");
+        if_.add("cond", table + ".vacancy()==0");
 
         ST send = if_;
-        String partitionIdx="0";
+        String partitionIdx = "0";
         sendToRemoteHead(send, table, partitionIdx, machineIdx);
     }
 
@@ -603,49 +635,51 @@ public class JoinerCodeGen {
         code.add("stmts", "SRuntime _$rt=SRuntimeWorker.getInst()");
         code.add("stmts", "RuleMap _$rm=_$rt.getRuleMap(getRuleId())");
         code.add("stmts", "int _$depRuleId=_$rm.getRemoteHeadDep(getRuleId())");
-        code.add("stmts", "EvalWithTable _$cmd=new EvalWithTable("+epochIdVar()+", _$depRuleId,"+table+","+partitionIdx+")");
-        String send = "boolean _$reuse = _$rt.sender().send("+machineIdx+","+"_$cmd)";
+        code.add("stmts", "EvalWithTable _$cmd=new EvalWithTable(" + epochIdVar() + ", _$depRuleId," + table + "," + partitionIdx + ")");
+        String send = "boolean _$reuse = _$rt.sender().send(" + machineIdx + "," + "_$cmd)";
         code.add("stmts", send);
-        code.add("stmts", "if(!_$reuse)"+nullifyRemoteTableMethod("head")+"("+machineIdx+")");
+        code.add("stmts", "if(!_$reuse)" + nullifyRemoteTableMethod("head") + "(" + machineIdx + ")");
     }
 
     void maybeSendToRemoteBody(ST code, String table, Predicate joinP) {
         Table t = tableMap.get(joinP.name());
-        ST if_= tmplGroup.getInstanceOf("if");
+        ST if_ = tmplGroup.getInstanceOf("if");
         code.add("stmts", if_);
-        if_.add("cond", table+".size()=="+table+".capacity()");
+        if_.add("cond", table + ".size()==" + table + ".capacity()");
 
         ST send = if_;
-        String machineIdx = partitionMapVar()+".machineIndexFor("+t.id()+","+joinP.first()+")";
-        sendToRemoteBody(send, table, machineIdx, ""+joinP.getPos());
+        String machineIdx = partitionMapVar() + ".machineIndexFor(" + t.id() + "," + joinP.first() + ")";
+        sendToRemoteBody(send, table, machineIdx, "" + joinP.getPos());
     }
+
     void maybeBroadcastToRemoteBody(ST code, String table, Predicate joinP) {
         Table t = tableMap.get(joinP.name());
-        ST if_= tmplGroup.getInstanceOf("if");
+        ST if_ = tmplGroup.getInstanceOf("if");
         code.add("stmts", if_);
-        if_.add("cond", table+".vacancy()==0");
+        if_.add("cond", table + ".vacancy()==0");
 
         ST send = if_;
-        broadcastToRemoteBody(send, table, ""+joinP.getPos());
+        broadcastToRemoteBody(send, table, "" + joinP.getPos());
     }
 
     void broadcastToRemoteBody(ST code, String table, String pos) {
         code.add("stmts", "SRuntime _$rt=SRuntimeWorker.getInst()");
         code.add("stmts", "RuleMap _$rm=_$rt.getRuleMap(getRuleId())");
-        code.add("stmts", "int _$depRuleId=_$rm.getRemoteBodyDep(getRuleId(),"+pos+")");
-        code.add("stmts", "EvalWithTable _$cmd=new EvalWithTable("+epochIdVar()+",_$depRuleId,"+table+",0)");
+        code.add("stmts", "int _$depRuleId=_$rm.getRemoteBodyDep(getRuleId()," + pos + ")");
+        code.add("stmts", "EvalWithTable _$cmd=new EvalWithTable(" + epochIdVar() + ",_$depRuleId," + table + ",0)");
         String send = "boolean _$reuse = _$rt.sender().send(-1, _$cmd)";
         code.add("stmts", send);
-        code.add("stmts", "if(!_$reuse)"+nullifyRemoteTableMethod(pos)+"(0)");
+        code.add("stmts", "if(!_$reuse)" + nullifyRemoteTableMethod(pos) + "(0)");
     }
+
     void sendToRemoteBody(ST code, String table, String machineIdx, String pos) {
         code.add("stmts", "SRuntime _$rt=SRuntimeWorker.getInst()");
         code.add("stmts", "RuleMap _$rm=_$rt.getRuleMap(getRuleId())");
-        code.add("stmts", "int _$depRuleId=_$rm.getRemoteBodyDep(getRuleId(),"+pos+")");
-        code.add("stmts", "EvalWithTable _$cmd=new EvalWithTable("+epochIdVar()+",_$depRuleId,"+table+",0)");
-        String send = "boolean _$reuse = _$rt.sender().send("+machineIdx+", _$cmd)";
+        code.add("stmts", "int _$depRuleId=_$rm.getRemoteBodyDep(getRuleId()," + pos + ")");
+        code.add("stmts", "EvalWithTable _$cmd=new EvalWithTable(" + epochIdVar() + ",_$depRuleId," + table + ",0)");
+        String send = "boolean _$reuse = _$rt.sender().send(" + machineIdx + ", _$cmd)";
         code.add("stmts", send);
-        code.add("stmts", "if(!_$reuse)"+nullifyRemoteTableMethod(pos)+"("+machineIdx+")");
+        code.add("stmts", "if(!_$reuse)" + nullifyRemoteTableMethod(pos) + "(" + machineIdx + ")");
     }
 
     void generateIdGetters() {
@@ -664,20 +698,20 @@ public class JoinerCodeGen {
         String v1 = getVarName(p1);
         String v2 = getVarName(p2);
         if (p1.getPos() == 0) {
-            v1 += "["+ myPartitionIdx()+"]";
-            v2 += "["+ myPartitionIdx()+"]";
-            invoke += concatCommaSeparated(v1, v2)+")";
+            v1 += "[" + myPartitionIdx() + "]";
+            v2 += "[" + myPartitionIdx() + "]";
+            invoke += concatCommaSeparated(v1, v2) + ")";
             return invoke;
         } else {
             // this should be impossible, because we should have reordered the rule
             // such that the combined-iteration comes at the beginning.
             ST for_ = tmplGroup.getInstanceOf("for");
             for_.add("init", "int _$i=0");
-            for_.add("cond", "_$i<"+partitionMapVar()+".partitionNum("+t1.id()+")");
+            for_.add("cond", "_$i<" + partitionMapVar() + ".partitionNum(" + t1.id() + ")");
             for_.add("inc", "_$i++");
             v1 += "[_$i]";
             v2 += "[_$i]";
-            invoke += concatCommaSeparated(v1, v2)+")";
+            invoke += concatCommaSeparated(v1, v2) + ")";
             for_.add("stmts", invoke);
             return for_.render();
         }
@@ -702,7 +736,7 @@ public class JoinerCodeGen {
                 if (allVarsResolved(p)) {
                     code = returnIfNotContains(code, p);
                 } else if (canCombineIterate(p)) {
-                    Predicate p2 = (Predicate)rule.getBody().get(p.getPos()+1);
+                    Predicate p2 = (Predicate) rule.getBody().get(p.getPos() + 1);
                     genCombinedIterate(p, p2);
                     code.add("stmts", invokeCombinedIterate(p, p2));
                     iterStartP = p;
@@ -727,7 +761,9 @@ public class JoinerCodeGen {
                     insertIterateCodeInRun(code, tableVar);
                     break;
                 }
-            } else { assert false:"Expecting Expr or Predicate, but got:"+o; }
+            } else {
+                assert false : "Expecting Expr or Predicate, but got:" + o;
+            }
         }
         if (iterStartP == null) {
             insertUpdateAccumlOrPipelining(code);
@@ -742,11 +778,11 @@ public class JoinerCodeGen {
 
     void freeRemoteTables(ST code) {
         if (hasRemoteRuleHead()) {
-            code.add("stmts", "TmpTablePool.free(worker.id(),"+remoteTableVar("head")+")");
+            code.add("stmts", "TmpTablePool.free(worker.id()," + remoteTableVar("head") + ")");
         }
         if (hasRemoteRuleBody()) {
             for (int pos : tableTransferPos()) {
-                code.add("stmts", "TmpTablePool.free(worker.id(),"+remoteTableVar(pos)+")");
+                code.add("stmts", "TmpTablePool.free(worker.id()," + remoteTableVar(pos) + ")");
             }
         }
     }
@@ -766,16 +802,16 @@ public class JoinerCodeGen {
     }
 
     void finishSendRemoteRuleBody(ST code) {
-        for (int pos: tableTransferPos()) {
+        for (int pos : tableTransferPos()) {
             ST for_ = tmplGroup.getInstanceOf("for");
             code.add("stmts", for_);
-            Predicate p=(Predicate)rule.getBody().get(pos);
+            Predicate p = (Predicate) rule.getBody().get(pos);
             if (requireBroadcast(p)) {
                 for_.add("init", "int _$i=0");
                 for_.add("cond", "_$i<1");
                 for_.add("inc", "_$i++");
-                for_.add("stmts", "if ("+remoteTableVar(pos)+"[0]==null) continue");
-                broadcastToRemoteBody(for_, remoteTableVar(pos)+"[0]", ""+pos);
+                for_.add("stmts", "if (" + remoteTableVar(pos) + "[0]==null) continue");
+                broadcastToRemoteBody(for_, remoteTableVar(pos) + "[0]", "" + pos);
             } else {
                 // going over machines (_$i for machine-index)
                 for_.add("init", "int _$i=0");
@@ -810,7 +846,7 @@ public class JoinerCodeGen {
             invokeIter = call(tableVar, "iterate", visitorVar(rule.firstP()));
             code.add("stmts", invokeIter);
         } else {
-            invokeIter = tableVar+invokeIterate(iterStartP, resolvedVars);
+            invokeIter = tableVar + invokeIterate(iterStartP, resolvedVars);
             code.add("stmts", invokeIter);
         }
     }
@@ -820,7 +856,7 @@ public class JoinerCodeGen {
         Object[] params = p.inputParams();
         ArrayList<Column> idxCols = new ArrayList<>();
         Set<Variable> resolvedVars = resolvedVarsArray[p.getPos()];
-        for (int i=0; i<params.length; i++) {
+        for (int i = 0; i < params.length; i++) {
             if (isConstOrResolved(resolvedVars, params[i])) {
                 if (t.getColumn(i).isIndexed()) {
                     idxCols.add(t.getColumn(i));
@@ -833,7 +869,7 @@ public class JoinerCodeGen {
     }
 
     boolean isIndexColResolved(Predicate p) {
-        if (getResolvedIndexCols(p).size()==0) {
+        if (getResolvedIndexCols(p).size() == 0) {
             return false;
         }
         return true;
@@ -849,7 +885,7 @@ public class JoinerCodeGen {
 
     boolean isDontCare(Param param) {
         if (param instanceof Variable) {
-            return (((Variable)param).dontCare);
+            return (((Variable) param).dontCare);
         }
         return false;
     }
@@ -878,7 +914,9 @@ public class JoinerCodeGen {
         int pos = getPosInParams(p, v);
         if (pos >= 0) {
             Column c = t.getColumn(pos);
-            if (c.isSorted()) { return c; }
+            if (c.isSorted()) {
+                return c;
+            }
         }
         return null;
     }
@@ -901,6 +939,7 @@ public class JoinerCodeGen {
         else
             return cmpOp.cmpType().reverse();
     }
+
     Object cmpValForIteratePart(Predicate p) {
         Object next = rule.getBody().get(p.getPos() + 1);
         Op op = ((Expr) next).root;
@@ -910,8 +949,11 @@ public class JoinerCodeGen {
         Object rhs = cmpOp.getRHS();
         int sortCol = idxForIteratePart(p);
         Variable v = (Variable) p.inputParams()[sortCol];
-        if (v.equals(lhs)) { return rhs; }
-        else { return lhs; }
+        if (v.equals(lhs)) {
+            return rhs;
+        } else {
+            return lhs;
+        }
     }
 
     int idxForIteratePart(Predicate p) {
@@ -938,9 +980,10 @@ public class JoinerCodeGen {
     }
 
     boolean hasCmpNext(Predicate p) {
-        if (getNextCmpOp(p)==null) return false;
+        if (getNextCmpOp(p) == null) return false;
         return true;
     }
+
     CmpOp getNextCmpOp(Predicate p) {
         if (p.getPos() == rule.getBody().size() - 1)
             return null;
@@ -950,21 +993,23 @@ public class JoinerCodeGen {
         Op op = ((Expr) next).root;
         if (!(op instanceof CmpOp))
             return null;
-        return (CmpOp)op;
+        return (CmpOp) op;
     }
 
     int getNestingLevel(Predicate p, int col) {
         Table t = getTable(p);
-        int level=0;
-        for (int pos:t.nestPos()) {
+        int level = 0;
+        for (int pos : t.nestPos()) {
             if (pos <= col)
                 level++;
         }
         return level;
     }
+
     int getNestingLevel(Predicate p, Column c) {
         return getNestingLevel(p, c.position());
     }
+
     boolean iteratePart(Predicate p, Set<Variable> resolved) {
         if (!hasCmpNext(p)) return false;
 
@@ -986,8 +1031,11 @@ public class JoinerCodeGen {
         }
         return false;
     }
+
     boolean canBinarySearch(Predicate p, Variable v, Object cmp, Set<Variable> resolved) {
-        if (!isSortedColumn(p, v)) { return false; }
+        if (!isSortedColumn(p, v)) {
+            return false;
+        }
         Column sortedCol = getSortedColumn(p, v);
         if (getNestingLevel(p, sortedCol) >= 2) {
             // nesting level too deep, see table code templates (e.g. DynamicNestedTable.stg).
@@ -1016,19 +1064,22 @@ public class JoinerCodeGen {
     }
 
     Column getSortedColumn(Table t) {
-        for (Column c:t.getColumns()) {
+        for (Column c : t.getColumns()) {
             if (c.isSorted()) {
                 return c;
             }
         }
         return null;
     }
+
     Variable getSortedColumnVar(Predicate p, Table t) {
         Column sortedCol = getSortedColumn(t);
-        if (sortedCol == null) { return null; }
+        if (sortedCol == null) {
+            return null;
+        }
         Param param = p.inputParams()[sortedCol.getAbsPos()];
         if (param instanceof Variable) {
-            return (Variable)param;
+            return (Variable) param;
         } else {
             return null;
         }
@@ -1036,14 +1087,20 @@ public class JoinerCodeGen {
 
     boolean canCombineIterate(Predicate p) {
         // Returns true if p and the next predicate can be iterated in a lock-step.
-        if (true) {return false; }
+        if (true) {
+            return false;
+        }
 
         int nextPos = p.getPos() + 1;
         List body = rule.getBody();
-        if (nextPos >= body.size()) { return false; }
+        if (nextPos >= body.size()) {
+            return false;
+        }
 
         Object next = body.get(nextPos);
-        if (!(next instanceof Predicate)) { return false; }
+        if (!(next instanceof Predicate)) {
+            return false;
+        }
         Predicate nextP = (Predicate) next;
 
         Table t1 = getTable(p);
@@ -1073,14 +1130,14 @@ public class JoinerCodeGen {
                 if (allVarsResolved(p)) {
                     code = returnIfNotContains(code, (Predicate) o);
                 } else if (canCombineIterate(p)) {
-                    Predicate p2 = (Predicate) body.get(i+1);
+                    Predicate p2 = (Predicate) body.get(i + 1);
                     if (p != iterStartP) {
                         genCombinedIterate(p, p2);
                     }
                     genVisitMethodFor(p, resolved[i]);
                     i++;
                     code = genVisitMethodFor(p2, resolved[i]);
-              } else {
+                } else {
                     boolean added = insertContinuationCode(code, prevp, p, resolved[i]);
                     code = genVisitMethodFor(p, resolved[i]);
                     prevp = p;
@@ -1119,31 +1176,34 @@ public class JoinerCodeGen {
         genAccumlDeltaIfAny(code);
     }
 
-    boolean isInt(Object o) { return MyType.javaType(o).equals(int.class); }
+    boolean isInt(Object o) {
+        return MyType.javaType(o).equals(int.class);
+    }
+
     String getRemoteBodyTable(int pos, Object rangeOrHash) {
-        Object param = isInt(rangeOrHash)? rangeOrHash:"HashCode.get("+rangeOrHash+")";
-        return getRemoteTableMethod(pos)+"("+param+")";
+        Object param = isInt(rangeOrHash) ? rangeOrHash : "HashCode.get(" + rangeOrHash + ")";
+        return getRemoteTableMethod(pos) + "(" + param + ")";
     }
 
     String getRemoteHeadTable(Object machineIdx) {
-        Object param = isInt(machineIdx)? machineIdx:"HashCode.get("+machineIdx+")";
-        return getRemoteTableMethod("head")+"("+param+")";
+        Object param = isInt(machineIdx) ? machineIdx : "HashCode.get(" + machineIdx + ")";
+        return getRemoteTableMethod("head") + "(" + param + ")";
     }
 
     ST genAccumlRemoteHeadTable(ST code) {
         Table t = headT;
         ST ifLocalElse = tmplGroup.getInstanceOf("ifElse");
         code.add("stmts", ifLocalElse);
-        ifLocalElse.add("cond", partitionMapVar()+".isLocal("+t.id()+","+headP.first()+")");
+        ifLocalElse.add("cond", partitionMapVar() + ".isLocal(" + t.id() + "," + headP.first() + ")");
         ST ifLocal = tmplGroup.getInstanceOf("simpleStmts");
         ifLocalElse.add("stmts", ifLocal);
 
         RemoteHeadTable rt = remoteHeadT();
         String tableCls = rt.className();
         ifLocalElse.add("elseStmts", tableCls + " _$remoteT");
-        ifLocalElse.add("elseStmts", "int _$machineIdx=" + partitionMapVar()+
-                            ".machineIndexFor("+rt.origId()+","+headP.first()+")");
-        ifLocalElse.add("elseStmts", "_$remoteT="+getRemoteHeadTable(headP.first()));
+        ifLocalElse.add("elseStmts", "int _$machineIdx=" + partitionMapVar() +
+                ".machineIndexFor(" + rt.origId() + "," + headP.first() + ")");
+        ifLocalElse.add("elseStmts", "_$remoteT=" + getRemoteHeadTable(headP.first()));
 
         ST stmts = tmplGroup.getInstanceOf("simpleStmts");
         ifLocalElse.add("elseStmts", stmts);
@@ -1157,13 +1217,16 @@ public class JoinerCodeGen {
     }
 
     boolean requireBroadcast(Predicate p) {
-        if (p instanceof PrivPredicate) { return false; }
+        if (p instanceof PrivPredicate) {
+            return false;
+        }
         if (isResolved(p, p.first())) {
             return false;
         } else {
             return true;
         }
     }
+
     ST genAccumlRemoteBodyTable(ST code, Predicate p) {
         assert tableTransferPos().contains(p.getPos());
 
@@ -1173,24 +1236,25 @@ public class JoinerCodeGen {
         Table joinT = tableMap.get(p.name());
         ST ifElse = tmplGroup.getInstanceOf("ifElse");
         code.add("stmts", ifElse);
-        ifElse.add("cond", partitionMapVar()+".isLocal(" + joinT.id()+", "+p.first() + ")");
+        ifElse.add("cond", partitionMapVar() + ".isLocal(" + joinT.id() + ", " + p.first() + ")");
         ST ifLocal = tmplGroup.getInstanceOf("simpleStmts");
         ifElse.add("stmts", ifLocal);
 
-        RemoteBodyTable rt = (RemoteBodyTable)tableMap.get(RemoteBodyTable.name(rule, p.getPos()));
+        RemoteBodyTable rt = (RemoteBodyTable) tableMap.get(RemoteBodyTable.name(rule, p.getPos()));
         String tableCls = rt.className();
-        ifElse.add("elseStmts", tableCls+" _$remoteT="+getRemoteBodyTable(p.getPos(), p.first()));
-        ifElse.add("elseStmts", call("_$remoteT", "insert", rt.getParamVars()));
+        ifElse.add("elseStmts", tableCls + " _$remoteT=" + getRemoteBodyTable(p.getPos(), p.first()));
+        ifElse.add("elseStmts", call("_$remoteT", "insert", rt.getParamVars().toArray()));
 
         ST maybeSend = tmplGroup.getInstanceOf("simpleStmts");
         ifElse.add("elseStmts", maybeSend);
         maybeSendToRemoteBody(maybeSend, "_$remoteT", p);
         return ifLocal;
     }
+
     ST genBroadcastAccumlRemoteBodyTable(ST code, Predicate p) {
-        RemoteBodyTable rt = (RemoteBodyTable)tableMap.get(RemoteBodyTable.name(rule, p.getPos()));
+        RemoteBodyTable rt = (RemoteBodyTable) tableMap.get(RemoteBodyTable.name(rule, p.getPos()));
         String tableCls = rt.className();
-        code.add("stmts", tableCls+" _$remoteT="+getRemoteBodyTable(p.getPos(), "0"));
+        code.add("stmts", tableCls + " _$remoteT=" + getRemoteBodyTable(p.getPos(), "0"));
         code.add("stmts", call("_$remoteT", "insert", rt.getParamVars()));
         ST maybeSend = tmplGroup.getInstanceOf("simpleStmts");
         code.add("stmts", maybeSend);
@@ -1202,30 +1266,35 @@ public class JoinerCodeGen {
     }
 
     String toArgs(List params) {
-        String args="";
-        for (int i=0; i<params.size(); i++) {
+        String args = "";
+        for (int i = 0; i < params.size(); i++) {
             args += params.get(i);
-            if (i!=params.size()-1) args += ", ";
+            if (i != params.size() - 1) args += ", ";
         }
         return args;
     }
+
     void genAccumlDeltaIfAny(ST code) {
-        if (!accumlDelta(rule)) { return; }
+        if (!accumlDelta(rule)) {
+            return;
+        }
 
         String deltaTable = "getDeltaTable()";
         code.add("stmts", updateHeadParamsTo(deltaTable));
     }
 
     String headTablePartition() {
-        if (!isTablePartitioned(headT)) { return ""; }
+        if (!isTablePartitioned(headT)) {
+            return "";
+        }
 
         int shardCol = headT.getPartitionColumn();
         if (updateFromRemoteHeadT()) {
-                return "["+ partitionIdx(headT, headP.paramAt(shardCol))+"]";
+            return "[" + partitionIdx(headT, headP.paramAt(shardCol)) + "]";
         } else if (Analysis.updateParallelShard(rule, tableMap)) {
-                return "["+ myPartitionIdx()+"]";
+            return "[" + myPartitionIdx() + "]";
         } else {
-                return "["+ partitionIdx(headT, headP.paramAt(shardCol))+"]";
+            return "[" + partitionIdx(headT, headP.paramAt(shardCol)) + "]";
         }
     }
 
@@ -1235,14 +1304,14 @@ public class JoinerCodeGen {
         if (headT instanceof DeltaTable) {
             // For some starting rules in SCC, like DeltaFoo(a,b) :- Foo(a,b). , where Foo is in SCC
             // do nothing here, and set updatedVar true, so that delta table is updated
-            code.add("stmts", isUpdatedVar()+"=true");
+            code.add("stmts", isUpdatedVar() + "=true");
             return code;
         }
 
-        String _headTable = "_$"+headTableVar();
-        code.add("stmts", headT.className()+" "+_headTable+"="+headTableVar() + headTablePartition());
+        String _headTable = "_$" + headTableVar();
+        code.add("stmts", headT.className() + " " + _headTable + "=" + headTableVar() + headTablePartition());
 
-        ST prevCode=code;
+        ST prevCode = code;
         if (headP.hasFunctionParam()) {
             genAggrCode(code, _headTable, ifUpdated);
         } else {
@@ -1259,7 +1328,7 @@ public class JoinerCodeGen {
     void genAggrCode(ST code, String headTableVar, ST ifUpdated) {
         List<AggrFunction> funcs = headP.getAggrFuncs();
         String gbupdate = groupbyUpdate(headTableVar, funcs);
-        code.add("stmts", isUpdatedVar()+"=" + gbupdate);
+        code.add("stmts", isUpdatedVar() + "=" + gbupdate);
         ST if_ = tmplGroup.getInstanceOf("if");
         if_.add("cond", isUpdatedVar());
         if_.add("stmts", ifUpdated);
@@ -1268,11 +1337,13 @@ public class JoinerCodeGen {
     String groupbyUpdate(String tablePartition, List<AggrFunction> funcs) {
         int numAggrColumn = headT.numColumns() - headT.groupbyColNum();
         String[] suffixArgs = new String[numAggrColumn];
-        int i=0;
-        for (AggrFunction f:funcs) {
-            suffixArgs[i++] = call(f.className(),"get");
+        int i = 0;
+        for (AggrFunction f : funcs) {
+            suffixArgs[i++] = call(f.className(), "get");
         }
-        if (i < numAggrColumn) { suffixArgs[i++] = "null"; }
+        if (i < numAggrColumn) {
+            suffixArgs[i++] = "null";
+        }
 
         return call(tablePartition, "groupby_update", makeHeadParamsArgs(suffixArgs));
     }
@@ -1283,29 +1354,33 @@ public class JoinerCodeGen {
 
     List<Object> headParams() {
         List<Object> params = new ArrayList<>();
-        for (Param p:headP.params) {
+        for (Param p : headP.params) {
             if (p instanceof Function) {
-                Function f = (Function)p;
-                for (Param a:f.getArgs()) {
+                Function f = (Function) p;
+                for (Param a : f.getArgs()) {
                     params.add(a);
                 }
-            } else { params.add(p); }
+            } else {
+                params.add(p);
+            }
         }
         return params;
     }
+
     String makeHeadParamsArgs() {
         return makeArgs(headParams());
     }
+
     String makeHeadParamsArgs(String... suffixArgs) {
         List<Object> args = headParams();
-        for(String a:suffixArgs) {
+        for (String a : suffixArgs) {
             args.add(a);
         }
         return makeArgs(args);
     }
 
     void genInsertCode(ST code, String headTableVar, ST ifUpdated) {
-        code.add("stmts", isUpdatedVar()+"=" + call(headTableVar, "insert", makeHeadParamsArgs()));
+        code.add("stmts", isUpdatedVar() + "=" + call(headTableVar, "insert", makeHeadParamsArgs()));
         ST if_ = tmplGroup.getInstanceOf("if");
         if_.add("cond", isUpdatedVar());
         if_.add("stmts", ifUpdated);
@@ -1319,30 +1394,31 @@ public class JoinerCodeGen {
 
     ST handleErrorFor(AssignOp assign, ST code) {
         assert assign.fromFunction();
-        Function f = (Function)assign.arg2;
+        Function f = (Function) assign.arg2;
 
         ST tryCatch = tmplGroup.getInstanceOf("tryCatch");
         code.add("stmts", tryCatch);
 
         tryCatch.add("errorVar", "_$e");
-        String _throw="if(_$e instanceof SociaLiteException) throw (SociaLiteException)_$e";
+        String _throw = "if(_$e instanceof SociaLiteException) throw (SociaLiteException)_$e";
         tryCatch.add("catchStmts", _throw);
 
-        String msg = "\"Error while invoking $"+f.name()+"(\"";
-        for (int i=0; i<f.getArgs().size(); i++) {
-            if (i!=0) msg += "+\",\"";
+        String msg = "\"Error while invoking $" + f.name() + "(\"";
+        for (int i = 0; i < f.getArgs().size(); i++) {
+            if (i != 0) msg += "+\",\"";
             Object a = f.getArgs().get(i);
             if (MyType.javaType(a).equals(String.class))
                 a = "\"\\\"\"+" + a + "+\"\\\"\"";
-            msg += "+"+a;
+            msg += "+" + a;
         }
-        msg += "+\"), \""+"+_$e";
+        msg += "+\"), \"" + "+_$e";
         msg += "+\"\"";
         tryCatch.add("catchStmts", "VisitorImpl.L.error(ExceptionUtils.getStackTrace(_$e))");
-        _throw="throw new SociaLiteException("+msg+"+\", \"+_$e)";
+        _throw = "throw new SociaLiteException(" + msg + "+\", \"+_$e)";
         tryCatch.add("catchStmts", _throw);
         return tryCatch;
     }
+
     ST insertExprCode(ST code, Expr expr) {
         if (expr.root instanceof AssignOp) {
             AssignOp assign = (AssignOp) expr.root;
@@ -1355,7 +1431,7 @@ public class JoinerCodeGen {
             if (assign.multiRows())
                 code = code2; // returning body of an iterator-loop
         } else {
-            ST if_  = tmplGroup.getInstanceOf("if");
+            ST if_ = tmplGroup.getInstanceOf("if");
             if_.add("cond", "!" + expr.codegen().render());
             if_.add("stmts", "return true");
             code.add("stmts", if_);
@@ -1377,41 +1453,45 @@ public class JoinerCodeGen {
         return false;
     }
 
-    String concatCommaSeparated(Object ...args) {
+    String concatCommaSeparated(Object... args) {
         String result = "";
-        for (int i=0; i<args.length; i++) {
+        for (int i = 0; i < args.length; i++) {
             result += args[i];
-            if (i!=args.length-1) { result += ","; }
+            if (i != args.length - 1) {
+                result += ",";
+            }
         }
         return result;
     }
 
     String negInf(Class type) {
         if (MyType.javaType(type).equals(int.class)) {
-            return ""+Integer.MIN_VALUE;
+            return "" + Integer.MIN_VALUE;
         } else if (MyType.javaType(type).equals(long.class)) {
-            return ""+Long.MIN_VALUE;
+            return "" + Long.MIN_VALUE;
         } else if (MyType.javaType(type).equals(float.class)) {
-            return ""+Float.MIN_VALUE;
+            return "" + Float.MIN_VALUE;
         } else if (MyType.javaType(type).equals(double.class)) {
-            return ""+Double.MIN_VALUE;
+            return "" + Double.MIN_VALUE;
         } else {
             return "null";
         }
     }
+
     String posInf(Class type) {
         if (MyType.javaType(type).equals(int.class)) {
-            return ""+Integer.MAX_VALUE;
+            return "" + Integer.MAX_VALUE;
         } else if (MyType.javaType(type).equals(long.class)) {
-            return ""+Long.MAX_VALUE;
+            return "" + Long.MAX_VALUE;
         } else if (MyType.javaType(type).equals(float.class)) {
-            return ""+Float.MAX_VALUE;
+            return "" + Float.MAX_VALUE;
         } else if (MyType.javaType(type).equals(double.class)) {
-            return ""+Double.MAX_VALUE;
+            return "" + Double.MAX_VALUE;
         } else {
             return "null";
         }
     }
+
     String invokeIterate(Predicate p, Set<Variable> resolvedVars) {
         String invokeIterate;
         String visitor = visitorVar(p);
@@ -1428,26 +1508,26 @@ public class JoinerCodeGen {
             } else {
                 range = call(constraint, "setRange", sortedCol, negInf(col.type()), cmpVal);
             }
-            invokeIterate = ".iterate_by("+range+", "+visitor+")";
+            invokeIterate = ".iterate_by(" + range + ", " + visitor + ")";
         } else if (isIndexColResolved(p)) {
             String buildConstr = constraint;
             Table t = getTable(p);
             Object[] params = p.inputParams();
-            for (int i=0; i<params.length; i++) {
+            for (int i = 0; i < params.length; i++) {
                 if (isConstOrResolved(resolvedVars, params[i])) {
                     buildConstr = call(buildConstr, "set", i, params[i]);
                 }
             }
-            invokeIterate = ".iterate_by("+buildConstr+","+visitor+")";
+            invokeIterate = ".iterate_by(" + buildConstr + "," + visitor + ")";
         } else {
-            invokeIterate = ".iterate("+visitor+")";
+            invokeIterate = ".iterate(" + visitor + ")";
         }
         return invokeIterate;
     }
 
     // returns true if continuation inserted
     boolean insertContinuationCode(ST code, Predicate prevp, Predicate p,
-            Set<Variable> resolved) {
+                                   Set<Variable> resolved) {
         if (code == null) {
             assert (prevp == null);
             return false;
@@ -1476,7 +1556,7 @@ public class JoinerCodeGen {
                 code = for_;
             }
         }
-        code.add("stmts", tableVar+invokeIterate);
+        code.add("stmts", tableVar + invokeIterate);
 
         return true;
     }
@@ -1485,6 +1565,7 @@ public class JoinerCodeGen {
         // p.isNegated() is used to generate negated filter
         return ifNotContains(code, p, "return true");
     }
+
     ST ifNotContains(ST code, Predicate p, String actionStmt) {
         if (hasRemoteRuleBody() && tableTransferPos().contains(p.getPos())) {
             ST ifLocal = genAccumlRemoteBodyTable(code, p);
@@ -1493,9 +1574,9 @@ public class JoinerCodeGen {
 
         Table t = getTable(p);
         String var = getVarName(p);
-        String condition="";
+        String condition = "";
         if (isTablePartitioned(t)) {
-            if (t instanceof  ArrayTable) {
+            if (t instanceof ArrayTable) {
                 condition = "!" + call(partitionMapVar(), "isValidRange", t.id(), p.first()) + "||";
             }
             var += arrayIdx(partitionIdx(t, p.first()));
@@ -1529,7 +1610,7 @@ public class JoinerCodeGen {
             int endCol = g.endIdx();
 
             m = getVisitMethod(p, startCol, endCol, numColumns);
-            if (areAllParamsDontcare(p.inputParams(), g.startIdx(), numColumns-1)) {
+            if (areAllParamsDontcare(p.inputParams(), g.startIdx(), numColumns - 1)) {
                 m.remove("ret");//bug fix, remove added "return true"
                 m.add("ret", "return false");// stop iteration after the visit method m.
                 break;
@@ -1573,14 +1654,14 @@ public class JoinerCodeGen {
 
     static String joinerClassName(Rule r, Map<String, Table> tableMap) {
         Class visitorClass = CodeGenMain.joinerClass$.get(r.signature(tableMap));
-        if (visitorClass!=null) {
+        if (visitorClass != null) {
             return visitorClass.getSimpleName();
         }
         String name = "Joiner" + r.getHead().name() + "_" + r.id();
         if (r instanceof DeltaRule) {
-            DeltaRule dr=(DeltaRule)r;
+            DeltaRule dr = (DeltaRule) r;
             if (dr.getTheP().isHeadP()) name += "_delta_head";
-            else name += "_delta"+dr.getTheP().getPos();
+            else name += "_delta" + dr.getTheP().getPos();
         }
         return name;
     }
@@ -1596,26 +1677,31 @@ public class JoinerCodeGen {
         return var;
     }
 
-    String printOut(Object ...args) {
+    String printOut(Object... args) {
         String out = "System.out.println(\"\"";
-        for (Object a:args) {
-            out += "+"+a;
+        for (Object a : args) {
+            out += "+" + a;
         }
         out += ")";
         return out;
     }
+
     String returnStmt(Object retVar) {
-        return "return "+retVar;
+        return "return " + retVar;
     }
+
     String init(Object lhs, Object initCode) {
         return lhs + "=" + initCode;
     }
+
     String decl(Class type, Object fieldOrMethod) {
         return decl(type.getSimpleName(), fieldOrMethod);
     }
+
     String decl(Object type, Object fieldOrMethod) {
         return type + " " + fieldOrMethod;
     }
+
     String inc(Object obj) {
         return obj + "++";
     }
@@ -1623,43 +1709,77 @@ public class JoinerCodeGen {
     ST forVarUpto(String var, String upto) {
         ST for_ = tmplGroup.getInstanceOf("for");
         for_.add("init", decl("int", init(var, "0")));
-        for_.add("cond", var+"<"+upto);
+        for_.add("cond", var + "<" + upto);
         for_.add("inc", inc(var));
         return for_;
     }
 
     String arrayIdx(String obj, String idx) {
-        return obj+"["+idx+"]";
+        return obj + "[" + idx + "]";
     }
+
     String arrayIdx(String idx) {
-        return "["+idx+"]";
+        return "[" + idx + "]";
     }
-    <T> String call(String obj, String method, T ...args) {
-        return obj+"."+method+"("+makeArgs(args)+")";
+
+    <T> String call(String obj, String method, T... args) {
+        return obj + "." + method + "(" + makeArgs(args) + ")";
     }
 
     String makeArgs(List<Object> args) {
         return makeArgs(args.toArray());
     }
-    <T> String makeArgs(T ... args) {
-        String[] strArgs = Arrays.stream(args).map(a->a.toString()).toArray(String[]::new);
+
+    <T> String makeArgs(T... args) {
+        String[] strArgs = Arrays.stream(args).map(Object::toString).toArray(String[]::new);
         return String.join(",", strArgs);
     }
-    String visitorVar(Predicate p) { return "$v"+p.getPos(); }
+
+    String visitorVar(Predicate p) {
+        return "$v" + p.getPos();
+    }
+
     String getVarName(Predicate p) {
         if (p.isHeadP()) {
             return headTableVar();
         } else {
-            return "$"+getVarName(p.name()) + p.getPos();
+            return "$" + getVarName(p.name()) + p.getPos();
         }
     }
-    String constraintVar(Predicate p) { return "$constr"+p.getPos(); }
-    String headTableVar() { return "$headTable"; }
-    String myPartitionIdx() { return "$selectedTablePartitionIdx"; }
-    String registryVar() { return "$registry"; }
-    String partitionMapVar() { return "$partitionMap"; }
-    String runtimeVar() { return "$runtime"; }
-    String ruleIdVar() { return "$ruleId"; }
-    String epochIdVar() { return "$epochId"; }
-    String isUpdatedVar() { return "$isUpdated"; }
+
+    String constraintVar(Predicate p) {
+        return "$constr" + p.getPos();
+    }
+
+    String headTableVar() {
+        return "$headTable";
+    }
+
+    String myPartitionIdx() {
+        return "$selectedTablePartitionIdx";
+    }
+
+    String registryVar() {
+        return "$registry";
+    }
+
+    String partitionMapVar() {
+        return "$partitionMap";
+    }
+
+    String runtimeVar() {
+        return "$runtime";
+    }
+
+    String ruleIdVar() {
+        return "$ruleId";
+    }
+
+    String epochIdVar() {
+        return "$epochId";
+    }
+
+    String isUpdatedVar() {
+        return "$isUpdated";
+    }
 }
