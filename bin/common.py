@@ -4,13 +4,18 @@ import os
 import re
 import sys
 
-SOCIALITE_PREFIX = os.getenv('SOCIALITE_PREFIX')
-JAVA_HOME = os.getenv('JAVA_HOME')
-MPI_HOME = os.getenv("MPI_HOME")
+# SOCIALITE_PREFIX = os.getenv('SOCIALITE_PREFIX')
+# JAVA_HOME = os.getenv('JAVA_HOME')
+# MPI_HOME = os.getenv("MPI_HOME")
+SOCIALITE_PREFIX = '/home/gongsf/socialite'
+JAVA_HOME = '/home/gongsf/jdk1.8.0_144'
+MPI_HOME = '/home/gongsf/openmpi-2.1.2'
+
 MACHINE_FILE = SOCIALITE_PREFIX + '/conf/machines'
 CLASS_PATH_LIST = []
 ENTRY_CLASS_PATH = SOCIALITE_PREFIX + '/out/production/socialite'
 MASTER_HOSTNAME = None
+WORKER_HOSTNAME_LIST = []
 WORKER_NUM = 0
 HEAP_SIZE = 4096
 THREAD_NUM = 4
@@ -34,10 +39,16 @@ with open(MACHINE_FILE, 'r') as fi:
     for line in fi:
         match = regex.search(line)
         if match is not None:
+            host_name = match.groups()[0]
+            slots = int(match.groups()[1])
             if MASTER_HOSTNAME is None:
-                MASTER_HOSTNAME = match.groups()[0]
-            WORKER_NUM += int(match.groups()[1])
-    WORKER_NUM -= 1  # master is excepted
+                MASTER_HOSTNAME = host_name
+                if slots > 1:
+                    WORKER_HOSTNAME_LIST.append(host_name)
+                    WORKER_NUM += slots - 1
+            else:
+                WORKER_HOSTNAME_LIST.append(host_name)
+                WORKER_NUM += slots
 
 
 def add_class_path(root):

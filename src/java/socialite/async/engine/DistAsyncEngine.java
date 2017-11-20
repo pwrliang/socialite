@@ -201,6 +201,7 @@ public class DistAsyncEngine implements Runnable {
                         if (termOrNot[0]) {
                             stopWatch.stop();
                             L.info("ASYNC MODE - TERM_CHECK_DETERMINED_TO_STOP ELAPSED " + stopWatch.getTime());
+                            shutdown();
                             break;
                         }
                     }
@@ -242,5 +243,9 @@ public class DistAsyncEngine implements Runnable {
             }
             return BaseAsyncRuntime.eval(accumulatedSum);
         }
+    }
+
+    private void shutdown(){
+        networkThread.shutdown();
     }
 }

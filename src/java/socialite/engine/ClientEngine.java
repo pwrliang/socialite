@@ -114,6 +114,10 @@ public class ClientEngine {
     public void setVerbose() {
         client.setVerbose();
     }
+
+    public void test() {
+        client.test();
+    }
 }
 
 class QueryClient {
@@ -258,6 +262,10 @@ class QueryClient {
 
     public void setVerbose() {
         proto.setVerbose(new BooleanWritable(true));
+    }
+
+    void test(){
+        proto.test();
     }
 
     public void shutdown() {

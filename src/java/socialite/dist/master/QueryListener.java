@@ -471,5 +471,17 @@ public class QueryListener implements QueryProtocol {
             L.error("Exception while calling WorkerCmd.info():" + e);
         }
     }
+
+    @Override
+    public void test() {
+        try {
+            Method info = WorkerCmd.class.getMethod("test", new Class[]{});
+            Object param[] = new Object[0];
+            MasterNode.callWorkers(info, param);
+            L.info("call test");
+        } catch (Exception e) {
+            L.error("Exception while calling WorkerCmd.info():" + e);
+        }
+    }
 }
 

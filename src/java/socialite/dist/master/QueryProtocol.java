@@ -13,24 +13,34 @@ import org.apache.hadoop.io.Writable;
 import socialite.util.SociaLiteException;
 
 public interface QueryProtocol extends VersionedProtocol {
-	public static final long versionID = 1L;
-	
-	public void addPyFunctions(BytesWritable classFilesBlob, BytesWritable bytesPyfuncs) throws RemoteException;
-	public void addClassFiles(BytesWritable classFilesBlob) throws RemoteException;
+    public static final long versionID = 1L;
 
-	public void run(Text program) throws RemoteException;
-	public void run(Text program, Text clientIp, IntWritable port) throws RemoteException;
-	public void run(Text prog, Text clientIp, IntWritable port, LongWritable id) throws RemoteException;
-	public void cleanupTableIter(LongWritable id);
-	
-	public BytesWritable status();
-	public BytesWritable status(IntWritable verbose);
+    public void addPyFunctions(BytesWritable classFilesBlob, BytesWritable bytesPyfuncs) throws RemoteException;
 
-	public BooleanWritable addToClassPath(Text hdfsPath);
-	public BooleanWritable removeFromClassPath(Text hdfsPath);
+    public void addClassFiles(BytesWritable classFilesBlob) throws RemoteException;
 
-	// for debugging
-	public void runGc();
-	public void info();
-	void setVerbose(BooleanWritable verbose);
+    public void run(Text program) throws RemoteException;
+
+    public void run(Text program, Text clientIp, IntWritable port) throws RemoteException;
+
+    public void run(Text prog, Text clientIp, IntWritable port, LongWritable id) throws RemoteException;
+
+    public void cleanupTableIter(LongWritable id);
+
+    public BytesWritable status();
+
+    public BytesWritable status(IntWritable verbose);
+
+    public BooleanWritable addToClassPath(Text hdfsPath);
+
+    public BooleanWritable removeFromClassPath(Text hdfsPath);
+
+    // for debugging
+    public void runGc();
+
+    public void info();
+
+    void test();
+
+    void setVerbose(BooleanWritable verbose);
 }

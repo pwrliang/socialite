@@ -52,7 +52,6 @@ public class DistEntry {
         }
         MPI.Finalize();
         L.info("process " + machineId + " exit.");
-//            System.exit(0);
     }
 
 }

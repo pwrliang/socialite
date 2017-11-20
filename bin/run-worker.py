@@ -15,5 +15,6 @@ cmd = """%s/bin/java
     HEAP_SIZE, MASTER_HOSTNAME, WORKER_NUM, SOCIALITE_PREFIX + '/conf/log4j.properties',
     SOCIALITE_PREFIX + '/gen', class_path, SOCIALITE_PREFIX + "/logs/master.log")
 cmd = cmd.replace('\n', '')
-os.system(cmd)
-# ssh -n gengl "sh -c '/home/gongsf/socialite/bin/run-worker.py'"
+for worker_hostname in WORKER_HOSTNAME_LIST:
+    os.system("ssh -n %s \"pkill -f WorkerNode\"" % worker_hostname)
+    os.system("ssh -f -n %s \"%s\"" % (worker_hostname, cmd))

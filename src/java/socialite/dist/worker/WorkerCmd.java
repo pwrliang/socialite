@@ -16,33 +16,41 @@ import socialite.resource.WorkerAddrMapW;
 import socialite.tables.ConstsWritable;
 
 public interface WorkerCmd extends VersionedProtocol {
-	public static final long versionID = 1L;
-	
-	public void makeConnections(ArrayWritable otherWorkers);
+    public static final long versionID = 1L;
+
+    public void makeConnections(ArrayWritable otherWorkers);
 
     public void init(WorkerAddrMapW workerAddrMapW) throws RemoteException;
 
-	public BooleanWritable isStillIdle(IntWritable epochId, IntWritable timestamp);
+    public BooleanWritable isStillIdle(IntWritable epochId, IntWritable timestamp);
+
     public void setEpochDone(IntWritable epochId);
 
-	public void haltEpoch();
+    public void haltEpoch();
 
-	public void addPyFunctions(BytesWritable classFilesBlob, BytesWritable pyfuncs);
-	public void addClassFiles(BytesWritable classFilesBlob);
-	
-	public BooleanWritable addToClassPath(Text _path);
-	public void run(EpochW ew);
-	public BooleanWritable runQuery(IntWritable queryTid,
-						   			Text queryClass,
-						   			LongWritable iterId,
-						   			ConstsWritable args);
-	public void cleanupTableIter(LongWritable id);
+    public void addPyFunctions(BytesWritable classFilesBlob, BytesWritable pyfuncs);
 
-	public Writable status();
-	public Writable status(IntWritable verbose);
-	
-	public void runGc();
-	public void info();
-	
-	//public void setVerbose(BooleanWritable verb);
+    public void addClassFiles(BytesWritable classFilesBlob);
+
+    public BooleanWritable addToClassPath(Text _path);
+
+    public void run(EpochW ew);
+
+    public BooleanWritable runQuery(IntWritable queryTid,
+                                    Text queryClass,
+                                    LongWritable iterId,
+                                    ConstsWritable args);
+
+    public void cleanupTableIter(LongWritable id);
+
+    public Writable status();
+
+    public Writable status(IntWritable verbose);
+
+    public void runGc();
+
+    public void info();
+
+    void test();
+    //public void setVerbose(BooleanWritable verb);
 }

@@ -30,6 +30,7 @@ import org.apache.hadoop.ipc.VersionedProtocol;
 import org.apache.hadoop.net.NetUtils;
 import org.python.core.PyFunction;
 
+import socialite.async.test.ForWorker;
 import socialite.codegen.Epoch;
 import socialite.codegen.EpochW;
 import socialite.dist.*;
@@ -336,6 +337,11 @@ public class CmdListener implements WorkerCmd {
     @Override
     public void info() {
         printMemInfo("info");
+    }
+
+    @Override
+    public void test() {
+        ForWorker.runnable.run();
     }
 
     @Override

@@ -16,7 +16,6 @@ import socialite.resource.DistTablePartitionMap;
 import socialite.resource.SRuntimeWorker;
 import socialite.resource.TableInstRegistry;
 import socialite.tables.TableInst;
-import socialite.util.Assert;
 import socialite.util.Loader;
 import socialite.util.SociaLiteException;
 import socialite.visitors.VisitorImpl;
@@ -54,6 +53,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         Map<String, Table> tableMap = runtimeWorker.getTableMap();
         TableInst[] initTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get("InitTable").id());
         TableInst[] edgeTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getEdgeTableName()).id());
+
         if (loadData(initTableInstArr, edgeTableInstArr)) {//this worker is idle, stop
             createThreads();
             startThreads();
@@ -158,7 +158,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
     private void startThreads() {
         if (AsyncConfig.get().isPriority() && !AsyncConfig.get().isPriorityLocal()) schedulerThread.start();
         Arrays.stream(computingThreads).filter(Objects::nonNull).forEach(Thread::start);
-        networkThread.start();
         if (!AsyncConfig.get().isSync() && !AsyncConfig.get().isBarrier()) {
 
             L.info("network thread started");
@@ -261,7 +260,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 //                    Arrays.stream(receiveThreads).forEach(ReceiveThreadSingle::start);
 //                    waitNetworkThread();
 
-                    double partialSum = update();
+                    double partialSum = aggregate();
 
 //                    MPI.COMM_WORLD.sendRecv(new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]}, 0, 4, MPI.DOUBLE, AsyncMaster.ID, MsgType.REQUIRE_TERM_CHECK.ordinal(),
 //                            feedback, 0, 1, MPI.BOOLEAN, AsyncMaster.ID, MsgType.TERM_CHECK_FEEDBACK.ordinal());
@@ -273,7 +272,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     break;//exit function, run will be called next round
                 } else {
 //                    L.info("switch times: " + asyncTable.swtichTimes.get());
-                    double partialSum = update();
+                    double partialSum = aggregate();
 
                     networkThread.read(0, MsgType.REQUIRE_TERM_CHECK.ordinal());
 
@@ -295,7 +294,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         }
 
 
-        private double update() {
+        private double aggregate() {
             double partialSum = 0;
             if (asyncTable != null) {//null indicate this worker is idle
                 if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.DELTA || asyncConfig.getCheckType() == AsyncConfig.CheckerType.DIFF_DELTA) {
