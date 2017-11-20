@@ -39,11 +39,10 @@ public class ForMaster {
         while (!MasterNode.getInstance().allOneLine())
             Thread.sleep(100);
         ClientEngine clientEngine = new ClientEngine();
-        clientEngine.run("edge(int src, int dst).");
-        clientEngine.run("edge1(int src:0..875712, (int dst)).");
-//        clientEngine.run("edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/wikipedia_link_en/edge_pair.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).");
-        clientEngine.run("edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/Google/edge.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).\n" +
-                "edge1(src,dst):-edge(src,dst).");
+//        clientEngine.run("edge(int src, int dst).");
+        clientEngine.run("edge(int src:0..12150975, (int dst)).");
+        clientEngine.run("edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/wikipedia_link_en/edge_pair.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).");
+//        clientEngine.run("edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/Google/edge.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).\n" );
 
 //        clientEngine.run("edge1(int src:0..875712, (int dst)).\n" +
 //                "edge2(int src:0..875712, (int dst)).\n" +

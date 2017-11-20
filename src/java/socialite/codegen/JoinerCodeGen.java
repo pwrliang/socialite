@@ -1199,7 +1199,7 @@ public class JoinerCodeGen {
         ifLocalElse.add("stmts", ifLocal);
         //TODO Still need more test
         //Liang: This is a optimization for rule like "edge(x, y) :- (x, y)=read()....", because every worker only need load data locally, send data to remote node is useless.
-        //if(!rule.isLoadRule()) {
+        if (!rule.isLoadRule()) {
             RemoteHeadTable rt = remoteHeadT();
             String tableCls = rt.className();
             ifLocalElse.add("elseStmts", tableCls + " _$remoteT");
@@ -1214,8 +1214,8 @@ public class JoinerCodeGen {
 
             ST maybeSend = tmplGroup.getInstanceOf("simpleStmts");
             ifLocalElse.add("elseStmts", maybeSend);
-        maybeSendToRemoteHead(maybeSend, "_$remoteT", "_$machineIdx", headP.first());
-        //}
+            maybeSendToRemoteHead(maybeSend, "_$remoteT", "_$machineIdx", headP.first());
+        }
         return ifLocal;
     }
 

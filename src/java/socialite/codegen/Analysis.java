@@ -577,7 +577,6 @@ public class Analysis {
     }
 
     public static boolean hasRemoteRuleHead(Rule r, Map<String, Table> tableMap) {
-        if (r.isLoadRule()) return false;//Liang: This is an optimization for data load
         Predicate h = r.getHead();
         if (r.isSimpleArrayInit()) return false;
         if (r.getBodyP().size() == 0) return true;
