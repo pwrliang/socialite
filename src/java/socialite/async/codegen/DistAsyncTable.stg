@@ -7,15 +7,13 @@ public class DistAsyncTable extends BaseDistAsyncTable{
     private static final Log L = LogFactory.getLog(DistAsyncTable.class);
     private volatile int size;
     <!只有静态且key为int才可以keyAsIndex!>
-    <if(dynamic || !IsKeyAsIndex.(keyType))>
-        private <KeyIndMap.(keyType)> keyIndMap;
-        private <IndKeyMap.(keyType)> indKeyMap; //using in iterate method
-    <endif>
+    private <KeyIndMap.(keyType)> keyIndMap;
+    private <IndKeyMap.(keyType)> indKeyMap; //using in iterate method
 
     <if(dynamic)>
         private <PrimitiveObjectMap.(keyType)>\<<PrimitiveMap.(keyType)>\> srcDstListMap;
         <if(weightType)>private <PrimitiveObjectMap.(keyType)>\<<PrimitiveMap.(weightType)>\> srcWeightListMap;<endif>
-    <endif>
+    <endif>l;
 
 
     private <PrimitiveMap.(valueType)> valueList;
@@ -31,8 +29,6 @@ public class DistAsyncTable extends BaseDistAsyncTable{
         <if(extraType)>private <PrimitiveMap.(extraType)> extraList;<endif>
     <endif>
     <if(IsBoolean.(valueType))>private List\<Boolean> sentFlagList;<endif>
-
-    private int base;
 
     <if(IsInt.(deltaType))>
     public static final <deltaType> IDENTITY_ELEMENT = <IntegerIdentityElement.(aggrType)>;
@@ -68,11 +64,6 @@ public class DistAsyncTable extends BaseDistAsyncTable{
            <if(extraType)> extraList = new <PrimitiveMap.(extraType)>(initSize);<endif>
        <endif>
        <if(IsBoolean.(valueType))>sentFlagList = new ArrayList\<>();<endif>
-    }
-
-    public DistAsyncTable(Class\<?> messageTableClass, DistTablePartitionMap partitionMap, int indexForTableId, int[] myIdxWorkerIdMap, int base) {
-        this(messageTableClass, partitionMap, indexForTableId, myIdxWorkerIdMap);
-        this.base = base;
     }
 
     @Override

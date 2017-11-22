@@ -1,17 +1,24 @@
-TypeAtomicMap ::= [
+TypeAtomic ::= [
    "int": "MyAtomicInteger",
     "long": "MyAtomicLong",
     "float": "MyAtomicFloat",
     "double": "MyAtomicDouble"
 ]
 
-WrappedTypeMap ::= [
+WrappedType ::= [
    "int": "Integer",
     "long": "Long",
     "float": "Float",
     "double": "Double",
     "boolean": "Boolean" ,
     default: "Pair"
+]
+
+ShortTypeNameMap ::= [
+   "int": "Int",
+    "long": "Long",
+    "float": "Float",
+    "double": "Double"
 ]
 
 WrappedTypeForTupleMap ::= [
@@ -42,7 +49,7 @@ IsPairKey ::= [
     default: false
 ]
 
-PrimitiveMap ::= [
+PrimitiveList ::= [
 	"int": "TIntArrayList",
 	"long": "TLongArrayList",
 	"float": "TFloatArrayList",
@@ -60,11 +67,11 @@ KeyIndMap ::= [
 ]
 
 IndKeyMap ::= [
-    "int": "TIntIntHashMap",
-    "long": "TIntLongHashMap",
-    "float": "TIntFloatHashMap",
-    "double": "TIntDoubleHashMap",
-    default: "TIntObjectHashMap<Pair>"
+    "int": "TIntArrayList",
+    "long": "TLongArrayList",
+    "float": "TFloatArrayList",
+    "double": "TDoubleArrayList",
+    default: "List<Pair>"
 ]
 
 PrimitiveObjectMap ::= [
@@ -112,7 +119,7 @@ PrimitiveInitValue ::= [
     "boolean" : "false"
 ]
 
-AggrTypeFuncMap ::= [
+AggrTypeFunc ::= [
     "dmax": "max",
     "dmin" : "min",
     "dsum" : "sum",

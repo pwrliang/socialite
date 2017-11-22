@@ -21,7 +21,7 @@ public class TablePartitionMap {
     public static final Log L=LogFactory.getLog(TablePartitionMap.class);
 
     final int defaultPartitionNum;
-    CopyOnWriteArrayList<PartitionInfo> partitionInfo;
+    final CopyOnWriteArrayList<PartitionInfo> partitionInfo;
 
     public TablePartitionMap() {
         int threadNum = ClusterConf.get().getNumWorkerThreads();

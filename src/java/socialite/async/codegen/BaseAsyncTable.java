@@ -22,6 +22,7 @@ public abstract class BaseAsyncTable {
     }
 
     public AtomicInteger swtichTimes = new AtomicInteger();
+
     public abstract double getPriority(int localInd);
 
     public abstract double accumulateValue();
@@ -30,7 +31,9 @@ public abstract class BaseAsyncTable {
 
     public abstract VisitorImpl getInitVisitor();
 
-    public VisitorImpl getEdgeVisitor() {
+    public abstract VisitorImpl getEdgeVisitor();
+
+    public VisitorImpl getExtraVisitor() {
         throw new NotImplementedException();
     }
 }
