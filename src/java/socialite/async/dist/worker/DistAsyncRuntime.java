@@ -53,8 +53,9 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         Map<String, Table> tableMap = runtimeWorker.getTableMap();
         TableInst[] initTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get("InitTable").id());
         TableInst[] edgeTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getEdgeTableName()).id());
+        TableInst[] extraTableInstArr = null;//TODO finish
 
-        if (loadData(initTableInstArr, edgeTableInstArr)) {//this worker is idle, stop
+        if (loadData(initTableInstArr, edgeTableInstArr, extraTableInstArr)) {//this worker is idle, stop
             createThreads();
             startThreads();
         } else {//this worker is idle
@@ -77,7 +78,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
     }
 
     @Override
-    protected boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr) {
+    protected boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr, TableInst[] extraTableInstArr) {
         Loader.loadFromBytes(payload.getByteCodes());
         Class<?> messageTableClass = Loader.forName("socialite.async.codegen.MessageTable");
         Class<?> distAsyncTableClass = Loader.forName("socialite.async.codegen.DistAsyncTable");
@@ -122,7 +123,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                 Constructor constructor = distAsyncTableClass.getConstructor(messageTableClass.getClass(), DistTablePartitionMap.class, int.class, int[].class, int.class);
                 asyncTable = (BaseDistAsyncTable) constructor.newInstance(messageTableClass, partitionMap, indexForTableId, myIdxWorkerArr, base);
             }
-
 
 
             for (TableInst tableInst : initTableInstArr) {

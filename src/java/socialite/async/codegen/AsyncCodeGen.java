@@ -59,6 +59,8 @@ public class AsyncCodeGen {
         st.add("expr", asyncAn.getsExpr());
         st.add("dynamic", asyncConfig.isDynamic());
         st.add("sync", asyncConfig.isSync());
+        if (asyncAn.getKeyType().equals("int") && !asyncConfig.isDynamic())
+            st.add("keyAsIndex", true);
         return st.render();
     }
 

@@ -17,32 +17,41 @@ public class AsyncRuntime extends BaseAsyncRuntime {
     //    private BaseAsyncRuntime.CheckThread checkerThread;
     private TableInst[] initTableInstArr;
     private TableInst[] edgeTableInstArr;
+    private TableInst[] extraTableInstArr;
 
-    public AsyncRuntime(BaseAsyncTable asyncTable, TableInst[] initTableInstArr, TableInst[] edgeTableInstArr) {
+    public AsyncRuntime(BaseAsyncTable asyncTable, TableInst[] initTableInstArr, TableInst[] edgeTableInstArr, TableInst[] extraTableInstArr) {
         super.asyncTable = asyncTable;
         this.initTableInstArr = initTableInstArr;
         this.edgeTableInstArr = edgeTableInstArr;
+        this.extraTableInstArr = extraTableInstArr;
     }
 
     @Override
-    protected boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr) {
+    protected boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr, TableInst[] extraTableInstArr) {
         try {
             Method method;
-            if (AsyncConfig.get().isDynamic()) {
-                //动态算法需要edge做连接，如prog4、9!>
-                method = edgeTableInstArr[0].getClass().getDeclaredMethod("iterate", VisitorImpl.class);
-                for (TableInst tableInst : edgeTableInstArr) {
-                    if (!tableInst.isEmpty()) {
-                        method.invoke(tableInst, asyncTable.getEdgeVisitor());
-                        tableInst.clear();
-                    }
-                }
-            }
-            method = initTableInstArr[0].getClass().getDeclaredMethod("iterate", VisitorImpl.class);
             for (TableInst tableInst : initTableInstArr) {
+                method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
                 if (!tableInst.isEmpty()) {
                     method.invoke(tableInst, asyncTable.getInitVisitor());
                     tableInst.clear();
+                }
+            }
+            for (TableInst tableInst : edgeTableInstArr) {
+                method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
+                if (!tableInst.isEmpty()) {
+                    method.invoke(tableInst, asyncTable.getEdgeVisitor());
+                    tableInst.clear();
+                }
+            }
+
+            if(extraTableInstArr!=null) {
+                for (TableInst tableInst : extraTableInstArr) {
+                    method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
+                    if (!tableInst.isEmpty()) {
+                        method.invoke(tableInst, asyncTable.getExtraVisitor());
+                        tableInst.clear();
+                    }
                 }
             }
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
@@ -54,7 +63,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
     @Override
     public void run() {
         L.info("RECV CMD NOTIFY_INIT CONFIG:" + AsyncConfig.get());
-        loadData(initTableInstArr, edgeTableInstArr);
+        loadData(initTableInstArr, edgeTableInstArr, extraTableInstArr);
         super.createThreads();
         arrangeTask();
         checkerThread = new AsyncRuntime.CheckThread();
@@ -92,7 +101,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
 //                    if (barrier == null)
 //                        waitingCheck();
                     Thread.sleep(asyncConfig.getCheckInterval());
-                    if(asyncConfig.isDynamic())
+                    if (asyncConfig.isDynamic())
                         arrangeTask();
                     double sum = 0.0d;
                     boolean skipFirst = false;

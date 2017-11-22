@@ -33,7 +33,7 @@ public abstract class BaseAsyncRuntime implements Runnable {
     private final Object lock = new Object();
     private long lastCheckTime;
 
-    protected abstract boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr);
+    protected abstract boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr,TableInst[] extraTableInstArr);
 
     protected void createThreads() {
         asyncConfig = AsyncConfig.get();

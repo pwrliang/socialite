@@ -278,11 +278,13 @@ public class Analysis {
                     Expr expr = (Expr) literal;
                     assert expr.root != null && expr.root instanceof AssignOp;
                     AssignOp assignOp = (AssignOp) expr.root;
-                    assert assignOp.arg2 != null && assignOp.arg2 instanceof Function;
-                    Function func = (Function) assignOp.arg2;
-                    if (func.methodName().equals("read")) {
-                        r.setLoadRule();
-                        break;
+                    assert assignOp.arg2 != null;
+                    if(assignOp.arg2 instanceof Function) {
+                        Function func = (Function) assignOp.arg2;
+                        if (func.methodName().equals("read")) {
+                            r.setLoadRule();
+                            break;
+                        }
                     }
                 }
             }

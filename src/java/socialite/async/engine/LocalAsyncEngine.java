@@ -68,14 +68,18 @@ public class LocalAsyncEngine {
     private void runReally(QueryVisitor queryVisitor) {
         TableInstRegistry registry = localEngine.getRuntime().getTableRegistry();
 
-        TableInst[] recInst = registry.getTableInstArray(localEngine.getRuntime().getTableMap().get("InitTable").id());
+        TableInst[] recInst = registry.getTableInstArray(localEngine.getRuntime().getTableMap().get(asyncAnalysis.getRecPName()).id());
         TableInst[] edgeInst = registry.getTableInstArray(localEngine.getRuntime().getTableMap().get(asyncAnalysis.getEdgePName()).id());
+        TableInst[] extraInstArr = null;
+        if (asyncAnalysis.getExtraPName() != null) {
+            extraInstArr = registry.getTableInstArray(localEngine.getRuntime().getTableMap().get(asyncAnalysis.getExtraPName()).id());
+        }
 
         Class<?> klass = asyncCodeGenMain.getAsyncTable();
         try {
             Constructor<?> constructor = klass.getConstructor(int.class);
             BaseAsyncTable asyncTable = (BaseAsyncTable) constructor.newInstance(AsyncConfig.get().getInitSize());
-            AsyncRuntime asyncRuntime = new AsyncRuntime(asyncTable, recInst, edgeInst);
+            AsyncRuntime asyncRuntime = new AsyncRuntime(asyncTable, recInst, edgeInst, extraInstArr);
             asyncRuntime.run();
             asyncTable.iterate(queryVisitor);
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
