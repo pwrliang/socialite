@@ -7,13 +7,18 @@ public class AsyncTable extends BaseAsyncTable{
     private static final Log L = LogFactory.getLog(AsyncTable.class);
     private volatile int size;
     <if(keyAsIndex)>
-    private List\<<PrimitiveList.(keyType)>\> srcDstListMap; //if weight graph, src,[dst1, weight1 ,dst2, weight2]
-    <else>
-    private <KeyIndMap.(keyType)> keyIndMap;
-    private <IndKeyMap.(keyType)> indKeyMap;
-    private <PrimitiveObjectMap.(keyType)>\<<PrimitiveList.(keyType)>\> srcDstListMap; //if weight graph, src,[dst1, weight1 ,dst2, weight2]
+    private List\<<PrimitiveList.(keyType)>\> adjList; //if weight graph, src,[dst1, weight1 ,dst2, weight2]
+    <else> <! NOTE: for single key program, the dst node is also adj, but for pair program, the dst node is type of pair !>
+        <if(IsPairKey.(keyType))>
+            private List\<List\<Pair>\> dstListList;//localInd as index
+            private Map\<Pair, Integer> keyIndMap;
+        <else>
+            private <KeyIndMap.(keyType)> keyIndMap;
+        <endif>
+        private <IndKeyMap.(keyType)> indKeyMap;
+        private <PrimitiveObjectMap.(keyType)>\<<PrimitiveList.(keyType)>\> adjList; //if weight graph, src,[dst1, weight1 ,dst2, weight2]
     <endif>
-
+    
 
     private <PrimitiveList.(valueType)> valueList;
     private List\<<TypeAtomic.(deltaType)>\> deltaList;
@@ -35,15 +40,24 @@ public class AsyncTable extends BaseAsyncTable{
     public static final <deltaType> IDENTITY_ELEMENT = <DoubleIdentityElement.(aggrType)>;
     <endif>
 
+    private boolean edgeInited;
 
     public AsyncTable(int initSize) {
         <if(keyAsIndex)>
-        srcDstListMap = new ArrayList\<>(size);
+        adjList = new ArrayList\<>(size);
+        <else>
+        <if(IsPairKey.(keyType))>
+        keyIndMap = new ConcurrentHashMap\<>(initSize);
         <else>
         keyIndMap = new <KeyIndMap.(keyType)>(initSize);
-        indKeyMap = new <IndKeyMap.(keyType)>(initSize);
-        srcDstListMap = new <PrimitiveObjectMap.(keyType)>\<>(initSize);
         <endif>
+        indKeyMap = new <IndKeyMap.(keyType)>(initSize);
+        adjList = new <PrimitiveObjectMap.(keyType)>\<>(initSize);
+        <endif>
+        
+        //<if(IsPairKey.(keyType))>keyDstListMap = new HashMap\<>();<endif>
+        <if(IsPairKey.(keyType))>dstListList = new ArrayList\<>();<endif>
+        
         valueList = new <PrimitiveList.(valueType)>(initSize);
         deltaList = new ArrayList\<>(initSize);
 
@@ -59,7 +73,13 @@ public class AsyncTable extends BaseAsyncTable{
         <if(keyAsIndex)>
             key = localInd;
         <else>
+            <if(dynamic)>
+            //synchronized(indKeyMap) {
+                key = indKeyMap.get(localInd);
+            //}
+            <else>
             key = indKeyMap.get(localInd);
+            <endif>
         <endif>
 
         <if(IsBoolean.(valueType))>
@@ -80,7 +100,7 @@ public class AsyncTable extends BaseAsyncTable{
             }
 
             if(valueList.get(localInd) && !sentFlagList.get(localInd)){
-                <PrimitiveList.(keyType)> dstList = srcDstListMap.get(key);
+                <PrimitiveList.(keyType)> dstList = adjList.get(key);
                 <! This node has no out-link, DO NOTHING !>
                 if(dstList==null){
 
@@ -90,7 +110,7 @@ public class AsyncTable extends BaseAsyncTable{
                         for(int i = 0; i\< dstList.size(); i++) {
                             int dstLocalInd;
                             <keyType> dst = dstList.get(i);
-                            if(keyIndMap.contains(dst)) {
+                            if(keyIndMap.containsKey(dst)) {
                                 dstLocalInd = keyIndMap.get(dst);
                             } else {
                                 dstLocalInd = addEntry(dst, false, IDENTITY_ELEMENT);
@@ -135,13 +155,15 @@ public class AsyncTable extends BaseAsyncTable{
             <if(extraType)><extraType> extra = keyExtraMap.get(key);<endif>
 
             <if(keyAsIndex)>
-            <PrimitiveList.(keyType)> dstList = srcDstListMap.get(localInd);
+                <PrimitiveList.(keyType)> dstList = adjList.get(localInd);
             <else>
                 <if(IsPairKey.(keyType))>
-                <PrimitiveList.(keyType)> dstList = srcDstListMap.get(key.getV1());
+                    List\<Pair> dstList = dstListList.get(localInd);
+                    if(dstList == null) return true; //for this key, there is no dst node which is normal
                 <else>
-                <! 遍历每个邻接点 !>
-                <PrimitiveList.(keyType)> dstList = srcDstListMap.get(key);
+                    <PrimitiveList.(keyType)> dstList = adjList.get(key);
+                    if(dstList == null)
+                        throw new RuntimeException(String.format("Node " + key + " has no out-link"));
                 <endif>
             <endif>
 
@@ -157,16 +179,22 @@ public class AsyncTable extends BaseAsyncTable{
                     dstLocalInd = dst;
                 <else>
                     <if(dynamic)>
-                        synchronized(keyIndMap) {
-                            if(keyIndMap.contains(dst))
+                        //synchronized(keyIndMap) {
+                            /*if(keyIndMap.containsKey(dst))
                                 dstLocalInd = keyIndMap.get(dst);
                             else
                                 <if(IsPairKey.(keyType))>
-                                dstLocalInd = addEntry(key.getV0(), dst, IDENTITY_ELEMENT, IDENTITY_ELEMENT);
+                                dstLocalInd = addEntry(dst.getV0(), dst.getV1(), IDENTITY_ELEMENT, IDENTITY_ELEMENT);
                                 <else>
                                 dstLocalInd = addEntry(dst, IDENTITY_ELEMENT, IDENTITY_ELEMENT);
-                                <endif>
-                        }
+                                <endif>*/
+
+                        //}
+                        <if(IsPairKey.(keyType))>
+                        dstLocalInd = keyIndMap.putIfAbsent(dst, addEntry(dst.getV0(), dst.getV1(), IDENTITY_ELEMENT, IDENTITY_ELEMENT));
+                        <else>
+                        dstLocalInd = keyIndMap.putIfAbsent(dst, addEntry(dst, IDENTITY_ELEMENT, IDENTITY_ELEMENT));
+                        <endif>
                     <else>
                         dstLocalInd = keyIndMap.get(dst);
                     <endif>
@@ -197,12 +225,48 @@ public class AsyncTable extends BaseAsyncTable{
     }
     <endif>
 
+    <if(IsPairKey.(keyType))>
+    private ArrayList\<Pair> join(Pair key) {
+        ArrayList\<Pair> dstList = new ArrayList\<>();
+
+        int col1 = key.getV0();
+        int col2 = key.getV1();
+        TIntArrayList adjacencies = adjList.get(col2);
+
+        if(adjacencies == null)
+            return null;
+
+        for(int i=0;i\<adjacencies.size();i++) {
+            int dst = adjacencies.get(i);
+
+            Pair pair = new Pair(col1, dst);
+            dstList.add(pair);
+        }
+        return dstList;
+    }
+    <endif>
+
+    /**
+    add an entry to the Table, If the key is present in the table, then the local index will be returned
+    */
     private synchronized int addEntry(<if(IsPairKey.(keyType))>int col1OfKey, int col2OfKey<else><keyType> key<endif>, <valueType> value, <deltaType> delta){
-        <if(IsPairKey.(keyType))>Pair key = new Pair(col1OfKey, col2OfKey);<endif>
         <if(!keyAsIndex)>
-        keyIndMap.put(key, size);
-        indKeyMap.add(key);
+            <if(IsPairKey.(keyType))>
+            <keyType> key = new Pair(col1OfKey, col2OfKey);
+            <endif>
+
+            Integer ind = keyIndMap.get(key);
+            if (ind != null) return ind;
+
+            <if(IsPairKey.(keyType))>
+            List\<Pair> adjList = join(key);
+
+            dstListList.add(adjList);
+            <endif>
+            keyIndMap.put(key, size);
+            indKeyMap.add(key);
         <endif>
+        
         valueList.add(value);
         deltaList.add(new <TypeAtomic.(deltaType)>(delta));
         <if(sync)>bufferDeltaList.add(new <TypeAtomic.(deltaType)>(IDENTITY_ELEMENT));<endif>
@@ -212,29 +276,48 @@ public class AsyncTable extends BaseAsyncTable{
 
     @Override
     public VisitorImpl getInitVisitor(){
+        if(!edgeInited)
+            throw new RuntimeException("CAN NOT CALL getInitVisitor before call getEdgeVisitor");
         return new VisitorImpl(){
+
+            <if(IsPairKey.(keyType))>
+            int col1OfKey;
             @Override
-            public boolean visit(<if(IsPairKey.(keyType))>int col1OfKey, int col2OfKey<else><keyType> key<endif>, <valueType> initDelta) {
-                addEntry(<if(IsPairKey.(keyType))>col1OfKey, col2OfKey<else>key<endif>, IDENTITY_ELEMENT, initDelta);
+            public boolean visit_0(int col1OfKey) {
+                this.col1OfKey = col1OfKey;
                 return true;
             }
+
+            @Override
+            public boolean visit(int col2OfKey, <valueType> initDelta) {
+                addEntry(col1OfKey, col2OfKey, IDENTITY_ELEMENT, initDelta);
+                return true;
+            }
+            <else>
+            @Override
+            public boolean visit(<keyType> key, <valueType> initDelta) {
+                addEntry(key, IDENTITY_ELEMENT, initDelta);
+                return true;
+            }
+            <endif>
         };
     }
 
     @Override
     public VisitorImpl getEdgeVisitor(){
+        edgeInited = true;
         return new VisitorImpl() {
-            <PrimitiveList.(keyType)> dstList;
+            <PrimitiveList.(keyType)> adjacencies;
             @Override
             public boolean visit_0(<if(IsPairKey.(keyType))>int<else><keyType><endif> key) {
                 <if(keyAsIndex)>
-                dstList = new <PrimitiveList.(keyType)>();
-                srcDstListMap.add(dstList);
+                adjacencies = new <PrimitiveList.(keyType)>();
+                adjList.add(adjacencies);
                 <else>
-                dstList = srcDstListMap.get(key);
-                if(dstList == null){
-                    dstList = new <PrimitiveList.(keyType)>();
-                    srcDstListMap.put(key, dstList);
+                adjacencies = adjList.get(key);
+                if(adjacencies == null) {
+                    adjacencies = new <PrimitiveList.(keyType)>();
+                    adjList.put(key, adjacencies);
                 }
                 <endif>
                 return true;
@@ -242,8 +325,8 @@ public class AsyncTable extends BaseAsyncTable{
 
             @Override
             public boolean visit(<if(IsPairKey.(keyType))>int<else><keyType><endif> dst <if(weightType)>,<weightType> weight<endif>) {
-                dstList.add(dst);
-                <if(weightType)>dstList.add(weight);<endif>
+                adjacencies.add(dst);
+                <if(weightType)>adjacencies.add(weight);<endif>
                 return true;
             }
         };

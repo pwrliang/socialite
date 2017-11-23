@@ -30,17 +30,19 @@ public class AsyncRuntime extends BaseAsyncRuntime {
     protected boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr, TableInst[] extraTableInstArr) {
         try {
             Method method;
-            for (TableInst tableInst : initTableInstArr) {
-                method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
-                if (!tableInst.isEmpty()) {
-                    method.invoke(tableInst, asyncTable.getInitVisitor());
-                    tableInst.clear();
-                }
-            }
+
             for (TableInst tableInst : edgeTableInstArr) {
                 method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
                 if (!tableInst.isEmpty()) {
                     method.invoke(tableInst, asyncTable.getEdgeVisitor());
+                    tableInst.clear();
+                }
+            }
+
+            for (TableInst tableInst : initTableInstArr) {
+                method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
+                if (!tableInst.isEmpty()) {
+                    method.invoke(tableInst, asyncTable.getInitVisitor());
                     tableInst.clear();
                 }
             }
@@ -110,7 +112,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
                         L.info("sum of value: " + new BigDecimal(sum));
                     } else if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.DELTA) {
                         sum = asyncTable.accumulateDelta();
-                        L.info("sum of delta: " + new BigDecimal(sum));
+                        L.info("sum of delta: " + sum);
                     } else if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.DIFF_VALUE) {
                         sum = asyncTable.accumulateValue();
                         if (lastSum == null) {

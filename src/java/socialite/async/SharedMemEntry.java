@@ -1,9 +1,13 @@
 package socialite.async;
 
+import gnu.trove.map.TIntIntMap;
+import gnu.trove.map.TObjectIntMap;
+import gnu.trove.map.hash.TObjectIntHashMap;
 import mpi.MPI;
 import mpi.MPIException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import socialite.async.codegen.Pair;
 import socialite.async.dist.master.AsyncMaster;
 import socialite.async.dist.worker.AsyncWorker;
 import socialite.async.engine.LocalAsyncEngine;
@@ -12,6 +16,9 @@ import socialite.dist.master.MasterNode;
 import socialite.dist.worker.WorkerNode;
 import socialite.util.SociaLiteException;
 import socialite.yarn.ClusterConf;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SharedMemEntry {
     private static final Log L = LogFactory.getLog(SharedMemEntry.class);
@@ -23,6 +30,7 @@ public class SharedMemEntry {
         LocalAsyncEngine localAsyncEngine = new LocalAsyncEngine(asyncConfig.getDatalogProg());
         localAsyncEngine.run();
     }
+
 
 //    public static final MyVisitorImpl myVisitor = new MyVisitorImpl() {
 //

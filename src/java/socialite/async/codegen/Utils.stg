@@ -71,7 +71,7 @@ IndKeyMap ::= [
     "long": "TLongArrayList",
     "float": "TFloatArrayList",
     "double": "TDoubleArrayList",
-    default: "List<Pair>"
+    default: "ArrayList<Pair>"
 ]
 
 PrimitiveObjectMap ::= [
@@ -196,6 +196,7 @@ import gnu.trove.list.array.*;
 import gnu.trove.map.*;
 import gnu.trove.map.hash.*;
 import java.util.function.*;
+import java.util.concurrent.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 >>

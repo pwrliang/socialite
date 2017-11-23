@@ -1,5 +1,6 @@
 package socialite.async.codegen;
 
+import com.intellij.util.containers.ConcurrentHashMap;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.STGroup;
 import socialite.async.AsyncConfig;
