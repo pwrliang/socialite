@@ -14,9 +14,7 @@ public class AsyncConfig {
     private CheckerType checkType;
     private Cond cond;
     private boolean dynamic;
-    private boolean priority;
-    private boolean priorityLocal;
-    private PriorityType priorityType = PriorityType.NONE;
+    private PriorityType priorityType;
     private double schedulePortion;
     private EngineType engineType;
     private boolean debugging;
@@ -33,27 +31,25 @@ public class AsyncConfig {
         StringBuilder sb = new StringBuilder();
         sb.append("\nCHECK_COND:").append(checkType == CheckerType.DELTA ? "DELTA" : "VALUE").append(getSCond()).append(" ").append(threshold).append("\n");
         sb.append("CHECK_INTERVAL:").append(checkInterval).append("\n");
-        if (priorityType == PriorityType.NONE)
-            sb.append("PRIORITY_TYPE:NONE").append("\n");
-        else {
-            if (priorityType == PriorityType.SUM_COUNT)
-                sb.append("PRIORITY_TYPE:DELTA").append("\n");
-            else if (priorityType == PriorityType.MIN)
-                sb.append("PRIORITY_TYPE:VALUE -  MIN(VALUE, DELTA)").append("\n");
-            else if (priorityType == PriorityType.MAX)
-                sb.append("PRIORITY_TYPE:VALUE -  MAX(VALUE, DELTA)").append("\n");
-            sb.append("SCHEDULE_PORTION:").append(schedulePortion).append("\n");
-        }
-        sb.append(priorityLocal ? "PRIORITY_LOCAL" : "PRIORITY_GLOBAL").append("\n");
 
-        sb.append(dynamic ? "DYNAMIC" : "STATIC").append("\n");
+        sb.append("PRIORITY_TYPE:");
+        if (priorityType == PriorityType.NONE)
+            sb.append("NONE");
+        else if (priorityType == PriorityType.LOCAL)
+            sb.append("LOCAL");
+        else if (priorityType == PriorityType.GLOBAL)
+            sb.append("GLOBAL");
+        sb.append("\n");
+        sb.append("DYNAMIC:").append(dynamic ? "TRUE" : "FALSE").append("\n");
+        sb.append("ENGINE_TYPE:");
         if (engineType == EngineType.SYNC)
-            sb.append("SYNC").append("\n");
+            sb.append("SYNC");
         else if (engineType == EngineType.SEMI_ASYNC)
-            sb.append("SEMI-ASYNC").append("\n");
+            sb.append("SEMI-ASYNC");
         else if (engineType == EngineType.ASYNC)
-            sb.append("ASYNC").append("\n");
-        sb.append(networkInfo ? "NETWORK_INFO" : "NON-NETWORK_INFO").append("\n");
+            sb.append("ASYNC");
+        sb.append("\n");
+        sb.append("NETWORK_INFO").append(networkInfo ? "TRUE" : "FALSE").append("\n");
         sb.append("THREAD_NUM:").append(threadNum).append("\n");
         sb.append("INIT_SIZE:").append(initSize).append("\n");
         sb.append("MESSAGE_UPDATE_THRESHOLD:").append(messageTableUpdateThreshold).append("\n");
@@ -106,14 +102,6 @@ public class AsyncConfig {
 
     public Cond getCond() {
         return cond;
-    }
-
-    public boolean isPriority() {
-        return priority;
-    }
-
-    public boolean isPriorityLocal() {
-        return priorityLocal;
     }
 
     public PriorityType getPriorityType() {
@@ -170,10 +158,6 @@ public class AsyncConfig {
     }
 
 
-    public void setPriorityType(PriorityType priorityType) {
-        this.priorityType = priorityType;
-    }
-
     public enum Cond {
         G, GE, E, L, LE
     }
@@ -182,14 +166,12 @@ public class AsyncConfig {
         VALUE, DELTA, DIFF_VALUE, DIFF_DELTA
     }
 
-    public enum EngineType {
-        ASYNC, SEMI_ASYNC, SYNC
+    public enum PriorityType {
+        NONE, LOCAL, GLOBAL
     }
 
-    public enum PriorityType {
-        NONE, SUM_COUNT, //delta
-        MIN, //value-min(value, delta)
-        MAX //value-max(value, delta)
+    public enum EngineType {
+        ASYNC, SEMI_ASYNC, SYNC
     }
 
     public static class Builder {
@@ -198,12 +180,11 @@ public class AsyncConfig {
         private CheckerType checkType;
         private Cond cond;
         private EngineType engineType;
+        private PriorityType priorityType;
         private boolean dynamic;
         private boolean debugging;
         private int threadNum;
         private int initSize;
-        private boolean priority;
-        private boolean priorityLocal;
         private boolean networkInfo;
         private double schedulePortion;
         private int messageTableUpdateThreshold;
@@ -232,13 +213,8 @@ public class AsyncConfig {
             return this;
         }
 
-        public Builder setPriority(boolean priority) {
-            this.priority = priority;
-            return this;
-        }
-
-        public Builder setPriorityLocal(boolean priorityLocal) {
-            this.priorityLocal = priorityLocal;
+        public Builder setPriorityType(PriorityType priorityType) {
+            this.priorityType = priorityType;
             return this;
         }
 
@@ -315,9 +291,8 @@ public class AsyncConfig {
             asyncConfig.checkType = checkType;
             asyncConfig.cond = cond;
             asyncConfig.engineType = engineType;
-            asyncConfig.priority = priority;
-            asyncConfig.priorityLocal = priorityLocal;
             asyncConfig.schedulePortion = schedulePortion;
+            asyncConfig.priorityType = priorityType;
             asyncConfig.dynamic = dynamic;
             asyncConfig.networkInfo = networkInfo;
             asyncConfig.debugging = debugging;
@@ -330,10 +305,8 @@ public class AsyncConfig {
             asyncConfig.datalogProg = datalogProg;
             if (AsyncConfig.asyncConfig != null)
                 throw new SociaLiteException("AsyncConfig already built");
-            if (!priority && priorityLocal)
-                throw new SociaLiteException("priority = false but priority local = true");
-            if ((engineType == EngineType.SYNC || engineType == EngineType.SEMI_ASYNC) && priority)
-                throw new SociaLiteException("can not user both of sync/semi-async and priority");
+            if (engineType != EngineType.ASYNC && priorityType != PriorityType.NONE)
+                throw new SociaLiteException("can not use priority with sync/semi-async mode");
             AsyncConfig.asyncConfig = asyncConfig;
             return asyncConfig;
         }
@@ -408,18 +381,13 @@ public class AsyncConfig {
                 case "CHECK_THRESHOLD":
                     asyncConfig.setThreshold(Double.parseDouble(val));
                     break;
-                case "PRIORITY":
-                    if (val.equals("TRUE"))
-                        asyncConfig.setPriority(true);
-                    else if (val.equals("FALSE"))
-                        asyncConfig.setPriority(false);
-                    else throw new SociaLiteException("unknown val: " + val);
-                    break;
-                case "PRIORITY_LOCAL":
-                    if (val.equals("TRUE"))
-                        asyncConfig.setPriorityLocal(true);
-                    else if (val.equals("FALSE"))
-                        asyncConfig.setPriorityLocal(false);
+                case "PRIORITY_TYPE":
+                    if (val.equals("NONE"))
+                        asyncConfig.setPriorityType(PriorityType.NONE);
+                    else if (val.equals("LOCAL"))
+                        asyncConfig.setPriorityType(PriorityType.LOCAL);
+                    else if(val.equals("GLOBAL"))
+                        asyncConfig.setPriorityType(PriorityType.GLOBAL);
                     else throw new SociaLiteException("unknown val: " + val);
                     break;
                 case "NETWORK_INFO":

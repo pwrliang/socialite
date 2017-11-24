@@ -151,20 +151,21 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         super.createThreads();
         arrangeTask();
         checkerThread = new CheckThread();
-        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC ||
-                asyncConfig.getEngineType() == AsyncConfig.EngineType.SEMI_ASYNC)
-            barrier = new CyclicBarrier(asyncConfig.getThreadNum(), checkerThread);
+//        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC ||
+//                asyncConfig.getEngineType() == AsyncConfig.EngineType.SEMI_ASYNC)
+//            barrier = new CyclicBarrier(asyncConfig.getThreadNum(), checkerThread);
     }
 
     private void startThreads() {
-        if (AsyncConfig.get().isPriority() && !AsyncConfig.get().isPriorityLocal()) schedulerThread.start();
-        Arrays.stream(computingThreads).filter(Objects::nonNull).forEach(Thread::start);
+        if (AsyncConfig.get().getPriorityType()== AsyncConfig.PriorityType.GLOBAL)
+            schedulerThread.start();
         if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
             L.info("network thread started");
             checkerThread.start();
             L.info("checker started");
         }
 
+        Arrays.stream(computingThreads).filter(Objects::nonNull).forEach(Thread::start);
         L.info(String.format("Worker %d all threads started.", myWorkerId));
         try {
             for (ComputingThread computingThread : computingThreads) computingThread.join();

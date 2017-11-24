@@ -24,10 +24,11 @@ public abstract class BaseAsyncRuntime implements Runnable {
     protected SchedulerThread schedulerThread;
     protected CheckThread checkerThread;
     protected BaseAsyncTable asyncTable;
-    protected CyclicBarrier barrier;
     protected AtomicInteger updateCounter;
-    protected ResettableCountDownLatch countDownLatch;
-    private volatile double priorityThreshold;
+    private CyclicBarrier barrier;
+    private ResettableCountDownLatch countDownLatch;
+    private static final int SAMPLE_SIZE = 1000;
+    private volatile double globalThreshold;
 
     private volatile boolean check;
     private final Object lock = new Object();
@@ -38,14 +39,17 @@ public abstract class BaseAsyncRuntime implements Runnable {
     protected void createThreads() {
         asyncConfig = AsyncConfig.get();
         updateCounter = new AtomicInteger();
-        int half = asyncConfig.getThreadNum() / 2;
-        if (asyncConfig.isPriority()) countDownLatch = new ResettableCountDownLatch(half == 0 ? 1 : half);
-        priorityThreshold = -Double.MAX_VALUE;
-
-        int threadNum = asyncConfig.getThreadNum();
-        computingThreads = new ComputingThread[threadNum];
-        IntStream.range(0, threadNum).forEach(i -> computingThreads[i] = new ComputingThread(i));
-        if (AsyncConfig.get().isPriority()) schedulerThread = new SchedulerThread();
+        globalThreshold = -Double.MAX_VALUE;
+        computingThreads = new ComputingThread[asyncConfig.getThreadNum()];
+        IntStream.range(0, asyncConfig.getThreadNum()).forEach(i -> computingThreads[i] = new ComputingThread(i));
+        if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC)// For Sync/Semi-Async mode, the barrier is required
+            barrier = new CyclicBarrier(asyncConfig.getThreadNum(), checkerThread);
+        //For global priority mode, update the global priority when the half threads finish a round
+        if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.GLOBAL) {
+            int half = asyncConfig.getThreadNum() / 2;
+            countDownLatch = new ResettableCountDownLatch(half == 0 ? 1 : half);
+            schedulerThread = new SchedulerThread();
+        }
     }
 
     public BaseAsyncTable getAsyncTable() {
@@ -65,7 +69,7 @@ public abstract class BaseAsyncRuntime implements Runnable {
             asyncConfig = AsyncConfig.get();
             randomGenerator = ThreadLocalRandom.current();
             SCHEDULE_PORTION = asyncConfig.getSchedulePortion();
-            deltaSample = new double[1000];
+            deltaSample = new double[SAMPLE_SIZE];
             bound = new int[2];
         }
 
@@ -73,42 +77,35 @@ public abstract class BaseAsyncRuntime implements Runnable {
         @Override
         public void run() {
             if (tid == 0) lastCheckTime = System.currentTimeMillis();
-            if (!asyncConfig.isPriority() || asyncConfig.isPriorityLocal()) {
-                if (asyncConfig.isPriority())
-                    L.info("PRIORITY LOCAL!!!!!!!!!!!!!!");
-                try {
-                    while (!stop) {
-                        int start;
-                        int end;
-                        synchronized (bound) {
-                            start = bound[0];
-                            end = bound[1];
-                        }
+            try {
+                while (!stop) {
+                    int start;
+                    int end;
+                    synchronized (bound) {
+                        start = bound[0];
+                        end = bound[1];
+                    }
 
-                        //empty thread, sleep to reduce CPU race
-                        if (start == end) {
-                            Thread.sleep(10);
-                            barrier();
-                            continue;
-                        }
+                    if (start == end) { //empty thread, sleep to reduce CPU race
+                        Thread.sleep(10);
+                        if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) //Sync or Semi-Async Mode
+                            barrier.await();
+                        continue;
+                    }
 
-                        if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.NONE) {
-                            for (int k = start; k < end; k++) {
-                                if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC) {
-                                    if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
-                                } else {
-                                    if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-                                }
+                    if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.NONE) {
+                        for (int k = start; k < end; k++) {
+                            if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC) {
+                                if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
+                            } else {
+                                if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
                             }
-                        } else {
-                            double threshold;
-                            if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
-                                synchronized (bound) {
-                                    for (int i = 0; i < deltaSample.length; i++) {
-                                        int ind = randomGenerator.nextInt(start, end);
-                                        deltaSample[i] = asyncTable.getPriority(ind);
-                                    }
-                                }
+                        }
+                    } else if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.LOCAL) {
+                        for (int i = 0; i < deltaSample.length; i++) {
+                            int ind = randomGenerator.nextInt(start, end);
+                            deltaSample[i] = asyncTable.getPriority(ind);
+                        }
 //                            boolean update = false;
 //                            for (double delta : deltaSample)
 //                                if (delta != 0) {
@@ -120,87 +117,35 @@ public abstract class BaseAsyncRuntime implements Runnable {
 //                                Thread.sleep(1);
 //                                continue;
 //                            }
-                            }
-                            Arrays.sort(deltaSample);
-                            int cutIndex = (int) (deltaSample.length * (1 - SCHEDULE_PORTION));
-                            if (cutIndex == 0)
-                                threshold = -Double.MAX_VALUE;
-                            else
-                                threshold = deltaSample[cutIndex];
-                            for (int k = start; k < end; k++) {
-                                double delta = asyncTable.getPriority(k);
-                                if (delta >= threshold) {
-                                    if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC) {
-                                        if (asyncTable.updateLockFree(k, checkerThread.iter))
-                                            updateCounter.addAndGet(1);
-                                    } else {
-                                        if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-                                    }
-                                }
-                            }
-                        }
-                        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
-                            if (System.currentTimeMillis() - lastCheckTime >= checkerThread.CHECKER_INTERVAL) {
-                                checkerThread.notifyCheck();
-                                lastCheckTime = System.currentTimeMillis();
-                            }
-                        } else {
-                            barrier();
-                        }
-                    }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            } else {
-                L.info("PRIORITY GLOBALLLLLLLLLLL");
-                try {
-                    while (!stop) {
-                        int start;
-                        int end;
-                        synchronized (bound) {
-                            start = bound[0];
-                            end = bound[1];
-                        }
-
-                        //empty thread, sleep to reduce CPU race
-                        if (start == end) {
-                            Thread.sleep(10);
-                            if (barrier != null) barrier.await();
-                            if (countDownLatch != null) countDownLatch.countDown();
-                            continue;
-                        }
+                        Arrays.sort(deltaSample);
+                        int cutIndex = (int) (deltaSample.length * (1 - SCHEDULE_PORTION));
+                        double threshold = deltaSample[cutIndex];
 
                         for (int k = start; k < end; k++) {
-                            double delta = asyncTable.getPriority(k);
-                            if (delta >= priorityThreshold) {
+                            if (asyncTable.getPriority(k) >= threshold) {
+                                if (asyncTable.updateLockFree(k))
+                                    updateCounter.addAndGet(1);
+                            }
+                        }
+                    } else if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.GLOBAL) {
+                        for (int k = start; k < end; k++) {
+                            if (asyncTable.getPriority(k) >= globalThreshold) {
                                 if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
                             }
                         }
-                        if (countDownLatch != null) countDownLatch.countDown();
-                        if (barrier != null) barrier.await();
-                        else {
-                            if (tid == 0) {
-                                if (System.currentTimeMillis() - lastCheckTime >= checkerThread.CHECKER_INTERVAL) {
-                                    checkerThread.notifyCheck();
-                                    lastCheckTime = System.currentTimeMillis();
-                                }
-                            }
-                        }
+                        countDownLatch.countDown();
                     }
-                    if (countDownLatch != null) countDownLatch.countDown();
-                } catch (InterruptedException | BrokenBarrierException e) {
-                    e.printStackTrace();
+                    if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
+                        if (System.currentTimeMillis() - lastCheckTime >= checkerThread.CHECKER_INTERVAL) {
+                            checkerThread.notifyCheck();
+                            lastCheckTime = System.currentTimeMillis();
+                        }
+                    } else {
+                        barrier.await();
+                    }
                 }
-            }
-        }
-
-        private void barrier() {
-            if (barrier != null) {
-                try {
-                    barrier.await();
-                } catch (InterruptedException | BrokenBarrierException e) {
-                    e.printStackTrace();
-                }
+            } catch (InterruptedException | BrokenBarrierException e) {
+                e.printStackTrace();
             }
         }
 
@@ -243,121 +188,6 @@ public abstract class BaseAsyncRuntime implements Runnable {
         }
     }
 
-//    protected class ComputingThread extends Thread {
-//        private volatile int start;
-//        private volatile int end;
-//        private int tid;
-//        boolean assigned;
-//        private AsyncConfig asyncConfig;
-//
-//        public ComputingThread(int tid) {
-//            this.tid = tid;
-//            asyncConfig = AsyncConfig.get();
-//        }
-//
-//
-//        @Override
-//        public void run() {
-//            try {
-//                while (!stop) {
-//                    if (!assigned || asyncConfig.isDynamic()) {
-//                        arrangeTask();
-//                        assigned = true;
-//                    }
-//
-//                    //empty thread, sleep to reduce CPU race
-//                    if (start == end) {
-//                        Thread.sleep(10);
-//                        if (barrier != null) barrier.await();
-//                        if (countDownLatch != null) countDownLatch.countDown();
-//                        continue;
-//                    }
-//
-//                    if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.NONE) {
-//                        for (int k = start; k < end; k++) {
-//                            if (asyncConfig.isSync()) {
-//                                if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
-//                            } else {
-//                                if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-//                            }
-//                        }
-//                    } else if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.SUM_COUNT) {
-//                        for (int k = start; k < end; k++) {
-//                            double delta = asyncTable.getDelta(k);
-//                            if (delta >= priorityThreshold) {
-//                                if (asyncConfig.isSync()) {
-//                                    if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
-//                                } else {
-//                                    if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-//                                }
-//                            }
-//                        }
-//                    } else if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.MIN) {
-//                        for (int k = start; k < end; k++) {
-//                            double delta = asyncTable.getDelta(k);
-//                            double value = asyncTable.getValue(k);
-//                            double f = value - Math.min(value, delta);
-//                            if (f >= priorityThreshold) {
-//                                if (asyncConfig.isSync()) {
-//                                    if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
-//                                } else {
-//                                    if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-//                                }
-//                            }
-//                        }
-//                    } else if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.MAX) {
-//                        for (int k = start; k < end; k++) {
-//                            double delta = asyncTable.getDelta(k);
-//                            double value = asyncTable.getValue(k);
-//                            double f = value - Math.max(value, delta);
-//                            if (f >= priorityThreshold) {
-//                                if (asyncConfig.isSync()) {
-//                                    if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
-//                                } else {
-//                                    if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-//                                }
-//                            }
-//                        }
-//                    }
-//                    if (barrier != null) barrier.await();
-//                    if (countDownLatch != null) countDownLatch.countDown();
-//                }
-//            } catch (InterruptedException | BrokenBarrierException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//
-//        private void arrangeTask() {
-//            int threadNum = AsyncConfig.get().getThreadNum();
-//            int size = asyncTable.getSize();
-//            int blockSize = size / threadNum;
-//            if (blockSize == 0) {
-////                L.warn("too many threads asynctable size " + size);
-//                blockSize = size;
-//            }
-//
-//            for (int tid = 0; tid < threadNum; tid++) {
-//                int start = tid * blockSize;
-//                int end = (tid + 1) * blockSize;
-//                if (tid == threadNum - 1)//last thread, assign all
-//                    end = size;
-//                if (start >= size) {//assign empty tasks
-//                    start = 0;
-//                    end = 0;
-//                } else if (end > size || tid == threadNum - 1) {//block < lastThread's tasks or block > ~
-//                    end = size;
-//                }
-//                computingThreads[tid].start = start;
-//                computingThreads[tid].end = end;
-//            }
-//        }
-//
-//
-//        @Override
-//        public String toString() {
-//            return String.format("id: %d range: [%d, %d)", tid, start, end);
-//        }
-//    }
 
     protected class SchedulerThread extends Thread {
         AsyncConfig asyncConfig;
@@ -369,12 +199,11 @@ public abstract class BaseAsyncRuntime implements Runnable {
             asyncConfig = AsyncConfig.get();
             randomGenerator = ThreadLocalRandom.current();
             SCHEDULE_PORTION = asyncConfig.getSchedulePortion();
-            deltaSample = new double[1000];
+            deltaSample = new double[SAMPLE_SIZE];
         }
 
         @Override
         public void run() {
-
             while (!stop) {
                 try {
                     countDownLatch.await();
@@ -389,7 +218,6 @@ public abstract class BaseAsyncRuntime implements Runnable {
                     deltaSample[i] = asyncTable.getPriority(ind);
                 }
 
-
 //                boolean update = false;
 //                for (double delta : deltaSample)
 //                    if (delta != 0) {
@@ -402,16 +230,9 @@ public abstract class BaseAsyncRuntime implements Runnable {
 //                    continue;
 //                }
 
-                if (deltaSample.length == 0) {//no sample, schedule all
-                    priorityThreshold = -Double.MAX_VALUE;
-                } else {
-                    Arrays.sort(deltaSample);
-                    int cutIndex = (int) (deltaSample.length * (1 - SCHEDULE_PORTION));
-                    if (cutIndex == 0)
-                        priorityThreshold = -Double.MAX_VALUE;
-                    else
-                        priorityThreshold = deltaSample[cutIndex];
-                }
+                Arrays.sort(deltaSample);
+                int cutIndex = (int) (deltaSample.length * (1 - SCHEDULE_PORTION));
+                globalThreshold = deltaSample[cutIndex];
                 countDownLatch.reset();
             }
         }
@@ -458,6 +279,7 @@ public abstract class BaseAsyncRuntime implements Runnable {
                 lock.notify();
             }
         }
+
     }
 
     public static boolean eval(double val) {

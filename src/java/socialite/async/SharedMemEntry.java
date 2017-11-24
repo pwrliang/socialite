@@ -31,7 +31,6 @@ public class SharedMemEntry {
         localAsyncEngine.run();
     }
 
-
 //    public static final MyVisitorImpl myVisitor = new MyVisitorImpl() {
 //
 //        //PAGERANK

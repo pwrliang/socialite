@@ -1,16 +1,17 @@
 package socialite.parser.antlr;
 
+import socialite.collection.SArrayList;
+import socialite.parser.Const;
+import socialite.parser.Expr;
+import socialite.parser.Literal;
+import socialite.parser.Predicate;
+
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.ArrayList;
 import java.util.List;
-
-import socialite.collection.SArrayList;
-import socialite.parser.Literal;
-import socialite.parser.Const;
-import socialite.parser.Predicate;
 
 public class RuleDecl implements Externalizable {
     private static final long serialVersionUID = 1;
@@ -21,7 +22,8 @@ public class RuleDecl implements Externalizable {
 
     boolean simpleUpdate = false;
 
-    public RuleDecl() {}
+    public RuleDecl() {
+    }
 
     public RuleDecl(Predicate _head, List<Literal> _body) {
         head = _head;
@@ -36,6 +38,15 @@ public class RuleDecl implements Externalizable {
             if (o instanceof Const) {
                 Const c = (Const) o;
                 result += c.constValStr();
+            } else if (o instanceof Expr) {
+                //process like this, (X<5)->X<5
+                String expr = o.toString();
+                int lParenth = 0, rParenth = 0;
+                for (Character c : expr.toCharArray()) if (c == '(') lParenth++;
+                for (Character c : expr.toCharArray()) if (c == ')') rParenth++;
+                if (lParenth == 1 && rParenth == 1 && expr.startsWith("(") && expr.endsWith(")"))
+                    result += expr.substring(1, expr.length() - 1);
+                else result += expr;
             } else {
                 result += o;
                 if (("" + o).length() == 0)
@@ -54,9 +65,9 @@ public class RuleDecl implements Externalizable {
     public List<Predicate> getBodyP() {
         if (bodyP == null) {
             bodyP = new ArrayList(body.size());
-            for (Literal l:body) {
+            for (Literal l : body) {
                 if (l instanceof Predicate) {
-                    bodyP.add((Predicate)l);
+                    bodyP.add((Predicate) l);
                 }
             }
         }

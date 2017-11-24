@@ -10,7 +10,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.Arrays;
-import java.util.concurrent.CyclicBarrier;
 
 public class AsyncRuntime extends BaseAsyncRuntime {
     private static final Log L = LogFactory.getLog(AsyncRuntime.class);
@@ -24,6 +23,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
         this.initTableInstArr = initTableInstArr;
         this.edgeTableInstArr = edgeTableInstArr;
         this.extraTableInstArr = extraTableInstArr;
+        checkerThread = new AsyncRuntime.CheckThread();
     }
 
     @Override
@@ -64,18 +64,15 @@ public class AsyncRuntime extends BaseAsyncRuntime {
 
     @Override
     public void run() {
+        super.createThreads();
         L.info("RECV CMD NOTIFY_INIT CONFIG:" + AsyncConfig.get());
         loadData(initTableInstArr, edgeTableInstArr, extraTableInstArr);
-        super.createThreads();
-        arrangeTask();
-        checkerThread = new AsyncRuntime.CheckThread();
-        if (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.SYNC ||
-                AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.SEMI_ASYNC)
-            barrier = new CyclicBarrier(asyncConfig.getThreadNum(), checkerThread);
-
         L.info("Data Loaded size:" + asyncTable.getSize());
+        arrangeTask();
+
         Arrays.stream(computingThreads).forEach(ComputingThread::start);
-        if (AsyncConfig.get().isPriority() && !AsyncConfig.get().isPriorityLocal()) schedulerThread.start();
+        if (AsyncConfig.get().getPriorityType() == AsyncConfig.PriorityType.GLOBAL)
+            schedulerThread.start();
         if (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC)
             checkerThread.start();
         L.info("Worker started");
@@ -101,9 +98,8 @@ public class AsyncRuntime extends BaseAsyncRuntime {
             super.run();
             while (true) {
                 try {
-                    if (asyncConfig.getEngineType()==AsyncConfig.EngineType.ASYNC) {
+                    if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
                         waitingCheck();
-//                        Thread.sleep(asyncConfig.getCheckInterval());
                     }
 
                     if (asyncConfig.isDynamic())
@@ -112,10 +108,10 @@ public class AsyncRuntime extends BaseAsyncRuntime {
                     boolean skipFirst = false;
                     if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.VALUE) {
                         sum = asyncTable.accumulateValue();
-                        L.info("sum of value: " + new BigDecimal(sum));
+                        L.info(String.format("sum of value: %.8f", sum));
                     } else if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.DELTA) {
                         sum = asyncTable.accumulateDelta();
-                        L.info("sum of delta: " + sum);
+                        L.info(String.format("sum of delta: %.8f", sum));
                     } else if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.DIFF_VALUE) {
                         sum = asyncTable.accumulateValue();
                         if (lastSum == null) {
@@ -126,7 +122,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
                             sum = Math.abs(lastSum - sum);
                             lastSum = tmp;
                         }
-                        L.info("diff sum of value: " + new BigDecimal(sum));
+                        L.info(String.format("diff sum of value: %.8f", sum));
                     } else if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.DIFF_DELTA) {
                         sum = asyncTable.accumulateDelta();
                         if (lastSum == null) {
@@ -137,7 +133,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
                             sum = Math.abs(lastSum - sum);
                             lastSum = tmp;
                         }
-                        L.info("diff sum of delta: " + new BigDecimal(sum));
+                        L.info(String.format("diff sum of delta: %.8f", sum));
                     }
                     L.info("UPDATE TIMES:" + updateCounter.get());
                     if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC)
@@ -146,7 +142,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
                         done();
                         break;
                     }
-                    if (asyncConfig.getEngineType()!= AsyncConfig.EngineType.ASYNC)//sync or semi-async mode
+                    if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC)//sync or semi-async mode
                         break;
                 } catch (Exception e) {
                     e.printStackTrace();
