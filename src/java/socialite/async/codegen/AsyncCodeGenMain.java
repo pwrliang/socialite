@@ -78,9 +78,9 @@ public class AsyncCodeGenMain {
 
     public void genInitTableStats() {
         AsyncCodeGen asyncCodeGen = new AsyncCodeGen(asyncAn);
-        String stats = asyncCodeGen.generateInitTable();
-        String[] statArr = stats.replace("\r", "").replace("\n", "").split("\\$");
-        initStats = Arrays.stream(statArr).map(String::trim).collect(Collectors.toList());
+//        String stats = asyncCodeGen.generateInitTable();
+//        String[] statArr = stats.replace("\r", "").replace("\n", "").split("\\$");
+//        initStats = Arrays.stream(statArr).map(String::trim).collect(Collectors.toList());
     }
 
     private void compileAsyncTable() {

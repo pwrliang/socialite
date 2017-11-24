@@ -177,6 +177,8 @@ public class AsyncTable extends BaseAsyncTable{
                 int dstLocalInd;
                 <if(keyAsIndex)>
                     dstLocalInd = dst;
+                    if(dstLocalInd >= size)
+                        throw new RuntimeException(String.format("Node %d has no out-link", dstLocalInd));
                 <else>
                     <if(dynamic)>
                         //synchronized(keyIndMap) {

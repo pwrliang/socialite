@@ -1,26 +1,14 @@
 package socialite.engine;
 
 import gnu.trove.map.TIntFloatMap;
-import gnu.trove.map.hash.TIntFloatHashMap;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
-
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.python.core.PyFunction;
-import org.python.core.PyObject;
-import org.python.core.PyException;
 import org.python.core.Py;
+import org.python.core.PyException;
+import org.python.core.PyFunction;
 import org.python.core.PyJavaType;
-
 import socialite.codegen.Analysis;
 import socialite.codegen.CodeGenMain;
 import socialite.dist.PathTo;
@@ -39,6 +27,12 @@ import socialite.tables.TableRefLocal;
 import socialite.util.Loader;
 import socialite.util.ParseException;
 import socialite.util.SociaLiteException;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 
 public class LocalEngine {
@@ -89,10 +83,15 @@ public class LocalEngine {
     public void run(String program) {
         try {
             List<Eval> evals = compile(program).getEvalInsts();
+            StopWatch stopWatch = new StopWatch();
             for (Eval e : evals) {
+                stopWatch.reset();
+                stopWatch.start();
                 e.run();
+                stopWatch.stop();
+                L.info(e.epoch + "\nelapsed " + stopWatch.getTime());
                /* if (runtime.getException()!=null) {
-			    	throw new SociaLiteException(runtime.getException());
+                    throw new SociaLiteException(runtime.getException());
 			    }*/
             }
         } catch (Exception e) {
