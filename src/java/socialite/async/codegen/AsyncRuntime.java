@@ -47,7 +47,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
                 }
             }
 
-            if(extraTableInstArr!=null) {
+            if (extraTableInstArr != null) {
                 for (TableInst tableInst : extraTableInstArr) {
                     method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
                     if (!tableInst.isEmpty()) {
@@ -69,13 +69,14 @@ public class AsyncRuntime extends BaseAsyncRuntime {
         super.createThreads();
         arrangeTask();
         checkerThread = new AsyncRuntime.CheckThread();
-        if (AsyncConfig.get().isSync() || AsyncConfig.get().isBarrier())
+        if (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.SYNC ||
+                AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.SEMI_ASYNC)
             barrier = new CyclicBarrier(asyncConfig.getThreadNum(), checkerThread);
 
         L.info("Data Loaded size:" + asyncTable.getSize());
         Arrays.stream(computingThreads).forEach(ComputingThread::start);
         if (AsyncConfig.get().isPriority() && !AsyncConfig.get().isPriorityLocal()) schedulerThread.start();
-        if (!AsyncConfig.get().isSync() && !AsyncConfig.get().isBarrier())
+        if (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC)
             checkerThread.start();
         L.info("Worker started");
         try {
@@ -100,9 +101,11 @@ public class AsyncRuntime extends BaseAsyncRuntime {
             super.run();
             while (true) {
                 try {
-//                    if (barrier == null)
-//                        waitingCheck();
-                    Thread.sleep(asyncConfig.getCheckInterval());
+                    if (asyncConfig.getEngineType()==AsyncConfig.EngineType.ASYNC) {
+                        waitingCheck();
+//                        Thread.sleep(asyncConfig.getCheckInterval());
+                    }
+
                     if (asyncConfig.isDynamic())
                         arrangeTask();
                     double sum = 0.0d;
@@ -137,13 +140,13 @@ public class AsyncRuntime extends BaseAsyncRuntime {
                         L.info("diff sum of delta: " + new BigDecimal(sum));
                     }
                     L.info("UPDATE TIMES:" + updateCounter.get());
-                    if (asyncConfig.isSync() || asyncConfig.isBarrier())
+                    if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC)
                         L.info("ITER: " + iter);
                     if (!skipFirst && eval(sum)) {
                         done();
                         break;
                     }
-                    if (barrier != null)//sync mode
+                    if (asyncConfig.getEngineType()!= AsyncConfig.EngineType.ASYNC)//sync or semi-async mode
                         break;
                 } catch (Exception e) {
                     e.printStackTrace();

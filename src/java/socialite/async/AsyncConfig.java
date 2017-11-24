@@ -18,11 +18,9 @@ public class AsyncConfig {
     private boolean priorityLocal;
     private PriorityType priorityType = PriorityType.NONE;
     private double schedulePortion;
-    private boolean sync;
-    private boolean barrier;
+    private EngineType engineType;
     private boolean debugging;
     private boolean networkInfo;
-    private int networkThreadNum = 1;
     private int threadNum;
     private int initSize;
     private int messageTableUpdateThreshold;
@@ -47,12 +45,16 @@ public class AsyncConfig {
             sb.append("SCHEDULE_PORTION:").append(schedulePortion).append("\n");
         }
         sb.append(priorityLocal ? "PRIORITY_LOCAL" : "PRIORITY_GLOBAL").append("\n");
-        sb.append(sync ? "SYNC" : "ASYNC").append("\n");
+
         sb.append(dynamic ? "DYNAMIC" : "STATIC").append("\n");
-        sb.append(barrier ? "BARRIER" : "NON-BARRIER").append("\n");
+        if (engineType == EngineType.SYNC)
+            sb.append("SYNC").append("\n");
+        else if (engineType == EngineType.SEMI_ASYNC)
+            sb.append("SEMI-ASYNC").append("\n");
+        else if (engineType == EngineType.ASYNC)
+            sb.append("ASYNC").append("\n");
         sb.append(networkInfo ? "NETWORK_INFO" : "NON-NETWORK_INFO").append("\n");
         sb.append("THREAD_NUM:").append(threadNum).append("\n");
-        sb.append("NETWORK_THREAD_NUM:").append(networkThreadNum).append("\n");
         sb.append("INIT_SIZE:").append(initSize).append("\n");
         sb.append("MESSAGE_UPDATE_THRESHOLD:").append(messageTableUpdateThreshold).append("\n");
         sb.append("MESSAGE_TABLE_WAITING_INTERVAL:").append(messageTableWaitingInterval).append("\n");
@@ -118,12 +120,8 @@ public class AsyncConfig {
         return priorityType;
     }
 
-    public boolean isSync() {
-        return sync;
-    }
-
-    public boolean isBarrier() {
-        return barrier;
+    public EngineType getEngineType() {
+        return engineType;
     }
 
     public boolean isNetworkInfo() {
@@ -136,10 +134,6 @@ public class AsyncConfig {
 
     public int getThreadNum() {
         return threadNum;
-    }
-
-    public int getNetworkThreadNum() {
-        return networkThreadNum;
     }
 
     public int getInitSize() {
@@ -188,6 +182,10 @@ public class AsyncConfig {
         VALUE, DELTA, DIFF_VALUE, DIFF_DELTA
     }
 
+    public enum EngineType {
+        ASYNC, SEMI_ASYNC, SYNC
+    }
+
     public enum PriorityType {
         NONE, SUM_COUNT, //delta
         MIN, //value-min(value, delta)
@@ -199,13 +197,11 @@ public class AsyncConfig {
         private Double threshold = null;
         private CheckerType checkType;
         private Cond cond;
+        private EngineType engineType;
         private boolean dynamic;
-        private boolean sync;
         private boolean debugging;
         private int threadNum;
-        private int networkThreadNum;
         private int initSize;
-        private boolean barrier;
         private boolean priority;
         private boolean priorityLocal;
         private boolean networkInfo;
@@ -251,18 +247,13 @@ public class AsyncConfig {
             return this;
         }
 
-        public Builder setBarrier(boolean barrier) {
-            this.barrier = barrier;
-            return this;
-        }
-
         public Builder setDynamic(boolean dynamic) {
             this.dynamic = dynamic;
             return this;
         }
 
-        public Builder setSync(boolean sync) {
-            this.sync = sync;
+        public Builder setEngineType(EngineType engineType) {
+            this.engineType = engineType;
             return this;
         }
 
@@ -279,10 +270,6 @@ public class AsyncConfig {
         public Builder setThreadNum(int threadNum) {
             this.threadNum = threadNum;
             return this;
-        }
-
-        public void setNetworkThreadNum(int networkThreadNum) {
-            this.networkThreadNum = networkThreadNum;
         }
 
         public Builder setInitSize(int initSize) {
@@ -327,30 +314,26 @@ public class AsyncConfig {
             asyncConfig.threshold = threshold;
             asyncConfig.checkType = checkType;
             asyncConfig.cond = cond;
+            asyncConfig.engineType = engineType;
             asyncConfig.priority = priority;
             asyncConfig.priorityLocal = priorityLocal;
             asyncConfig.schedulePortion = schedulePortion;
             asyncConfig.dynamic = dynamic;
-            asyncConfig.barrier = barrier;
-            asyncConfig.sync = sync;
             asyncConfig.networkInfo = networkInfo;
             asyncConfig.debugging = debugging;
             asyncConfig.threadNum = threadNum;
             asyncConfig.initSize = initSize;
-            asyncConfig.networkThreadNum = networkThreadNum;
             asyncConfig.messageTableUpdateThreshold = messageTableUpdateThreshold;
             asyncConfig.messageTableWaitingInterval = messageTableWaitingInterval;
             asyncConfig.savePath = savePath;
             asyncConfig.printResult = printResult;
             asyncConfig.datalogProg = datalogProg;
-            if (sync && barrier)
-                throw new SociaLiteException("can not user both of sync and barrier");
             if (AsyncConfig.asyncConfig != null)
                 throw new SociaLiteException("AsyncConfig already built");
             if (!priority && priorityLocal)
                 throw new SociaLiteException("priority = false but priority local = true");
-            if ((sync || barrier) && priority)
-                throw new SociaLiteException("can not user both of sync/barrier and priority");
+            if ((engineType == EngineType.SYNC || engineType == EngineType.SEMI_ASYNC) && priority)
+                throw new SociaLiteException("can not user both of sync/semi-async and priority");
             AsyncConfig.asyncConfig = asyncConfig;
             return asyncConfig;
         }
@@ -446,11 +429,13 @@ public class AsyncConfig {
                         asyncConfig.setNetworkInfo(false);
                     else throw new SociaLiteException("unknown val: " + val);
                     break;
-                case "BARRIER":
-                    if (val.equals("TRUE"))
-                        asyncConfig.setBarrier(true);
-                    else if (val.equals("FALSE"))
-                        asyncConfig.setBarrier(false);
+                case "ENGINE_TYPE":
+                    if (val.equals("ASYNC"))
+                        asyncConfig.setEngineType(EngineType.ASYNC);
+                    else if (val.equals("SEMI-ASYNC"))
+                        asyncConfig.setEngineType(EngineType.SEMI_ASYNC);
+                    else if (val.equals("SYNC"))
+                        asyncConfig.setEngineType(EngineType.SYNC);
                     else throw new SociaLiteException("unknown val: " + val);
                     break;
                 case "SCHEDULE_PORTION":
@@ -463,13 +448,6 @@ public class AsyncConfig {
                         asyncConfig.setDynamic(false);
                     else throw new SociaLiteException("unknown val: " + val);
                     break;
-                case "SYNC":
-                    if (val.equals("TRUE"))
-                        asyncConfig.setSync(true);
-                    else if (val.equals("FALSE"))
-                        asyncConfig.setSync(false);
-                    else throw new SociaLiteException("unknown val: " + val);
-                    break;
                 case "PRINT_RESULT":
                     if (val.equals("TRUE"))
                         asyncConfig.setPrintResult(true);
@@ -479,9 +457,6 @@ public class AsyncConfig {
                     break;
                 case "THREAD_NUM":
                     asyncConfig.setThreadNum(Integer.parseInt(val));
-                    break;
-                case "NETWORK_THREAD_NUM":
-                    asyncConfig.setNetworkThreadNum(Integer.parseInt(val));
                     break;
                 case "INIT_SIZE":
                     asyncConfig.setInitSize(Integer.parseInt(val));

@@ -151,15 +151,15 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         super.createThreads();
         arrangeTask();
         checkerThread = new CheckThread();
-        if (AsyncConfig.get().isSync() || AsyncConfig.get().isBarrier())
+        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC ||
+                asyncConfig.getEngineType() == AsyncConfig.EngineType.SEMI_ASYNC)
             barrier = new CyclicBarrier(asyncConfig.getThreadNum(), checkerThread);
     }
 
     private void startThreads() {
         if (AsyncConfig.get().isPriority() && !AsyncConfig.get().isPriorityLocal()) schedulerThread.start();
         Arrays.stream(computingThreads).filter(Objects::nonNull).forEach(Thread::start);
-        if (!AsyncConfig.get().isSync() && !AsyncConfig.get().isBarrier()) {
-
+        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
             L.info("network thread started");
             checkerThread.start();
             L.info("checker started");
@@ -170,7 +170,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             for (ComputingThread computingThread : computingThreads) computingThread.join();
             L.info("Worker " + myWorkerId + " Computing Threads exited.");
 
-            if (!AsyncConfig.get().isSync() && AsyncConfig.get().isBarrier()) {
+            if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
                 checkerThread.join();
             }
         } catch (InterruptedException e) {
@@ -198,7 +198,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                         networkThread.send(data, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     }
 
-                    if (AsyncConfig.get().isSync() || AsyncConfig.get().isBarrier()) break;
+//                    if (AsyncConfig) break;
                 }
 //                L.info("end send");
             } catch (Exception e) {
@@ -229,7 +229,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 //                        L.info("msg size: " + messageTable.size());
                 }
 
-                if (AsyncConfig.get().isSync() || AsyncConfig.get().isBarrier()) break;
+//                if (AsyncConfig.get().isSync() || AsyncConfig.get().isBarrier()) break;
             }
 //                L.info("end recv");
         }
@@ -255,7 +255,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                 long[] rxTx = new long[]{0, 0};
                 if (asyncConfig.isNetworkInfo())
                     rxTx = NetworkUtil.getNetwork();
-                if (asyncConfig.isSync() || asyncConfig.isBarrier()) {//sync mode
+                if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) {//sync mode
 //                    Arrays.stream(sendThreads).forEach(SendThreadSingle::start);
 //                    Arrays.stream(receiveThreads).forEach(ReceiveThreadSingle::start);
 //                    waitNetworkThread();

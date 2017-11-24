@@ -1,7 +1,5 @@
 package socialite.async.engine;
 
-import mpi.MPI;
-import mpi.MPIException;
 import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -143,7 +141,7 @@ public class DistAsyncEngine implements Runnable {
                 while (true) {
                     accumulatedSum = 0;
                     double totalRx = 0, totalTx = 0;
-                    if (asyncConfig.isSync() || asyncConfig.isBarrier()) {
+                    if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) {
 //                        for (int source = 1; source <= workerNum; source++) {
 //                            MPI.COMM_WORLD.Recv(partialValue, 0, 4, MPI.DOUBLE, source, MsgType.REQUIRE_TERM_CHECK.ordinal());
 //                            accumulatedSum += partialValue[0];
@@ -213,7 +211,7 @@ public class DistAsyncEngine implements Runnable {
 
         private boolean isTerm() {
             L.info("TOTAL UPDATE TIMES " + totalUpdateTimes);
-            if (asyncConfig.isSync() || asyncConfig.isBarrier()) {
+            if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) {
                 L.info("ITER: " + ++iter);
             }
             if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.VALUE)
@@ -245,7 +243,7 @@ public class DistAsyncEngine implements Runnable {
         }
     }
 
-    private void shutdown(){
+    private void shutdown() {
         networkThread.shutdown();
     }
 }

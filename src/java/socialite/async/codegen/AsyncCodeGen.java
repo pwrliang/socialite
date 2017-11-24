@@ -1,6 +1,5 @@
 package socialite.async.codegen;
 
-import com.intellij.util.containers.ConcurrentHashMap;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.STGroup;
 import socialite.async.AsyncConfig;
@@ -40,7 +39,7 @@ public class AsyncCodeGen {
         st.add("extraType", asyncAn.getExtraType());
         st.add("expr", asyncAn.getsExpr());
         st.add("dynamic", asyncConfig.isDynamic());
-        st.add("sync", asyncConfig.isSync());
+        st.add("sync", asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC);
         if (asyncAn.getKeyType().equals("int") && !asyncConfig.isDynamic())
             st.add("keyAsIndex", true);
         return st.render();
@@ -60,7 +59,7 @@ public class AsyncCodeGen {
         st.add("weightType", asyncAn.getWeightType());
         st.add("extraType", asyncAn.getExtraType());
         st.add("expr", asyncAn.getsExpr());
-        st.add("sync", asyncConfig.isSync());
+        st.add("sync", asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC);
         return st.render();
     }
 }

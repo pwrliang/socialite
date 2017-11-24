@@ -33,7 +33,7 @@ public abstract class BaseAsyncRuntime implements Runnable {
     private final Object lock = new Object();
     private long lastCheckTime;
 
-    protected abstract boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr,TableInst[] extraTableInstArr);
+    protected abstract boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr, TableInst[] extraTableInstArr);
 
     protected void createThreads() {
         asyncConfig = AsyncConfig.get();
@@ -53,12 +53,10 @@ public abstract class BaseAsyncRuntime implements Runnable {
     }
 
     protected class ComputingThread extends Thread {
-        private volatile int start;
-        private volatile int end;
+        private final int[] bound;
         private int tid;
         double[] deltaSample;
         final double SCHEDULE_PORTION;
-        boolean assigned;
         private AsyncConfig asyncConfig;
         private ThreadLocalRandom randomGenerator;
 
@@ -68,6 +66,7 @@ public abstract class BaseAsyncRuntime implements Runnable {
             randomGenerator = ThreadLocalRandom.current();
             SCHEDULE_PORTION = asyncConfig.getSchedulePortion();
             deltaSample = new double[1000];
+            bound = new int[2];
         }
 
 
@@ -79,24 +78,37 @@ public abstract class BaseAsyncRuntime implements Runnable {
                     L.info("PRIORITY LOCAL!!!!!!!!!!!!!!");
                 try {
                     while (!stop) {
-//                        if (!assigned || asyncConfig.isDynamic()) {
-//                            arrangeTask();
-//                            assigned = true;
-//                        }
+                        int start;
+                        int end;
+                        synchronized (bound) {
+                            start = bound[0];
+                            end = bound[1];
+                        }
 
                         //empty thread, sleep to reduce CPU race
                         if (start == end) {
                             Thread.sleep(10);
-                            if (barrier != null) barrier.await();
+                            barrier();
                             continue;
                         }
-                        double threshold;
-                        if(!asyncConfig.isSync() && ! asyncConfig.isBarrier()) {
-                            for (int i = 0; i < deltaSample.length; i++) {
-                                int ind = randomGenerator.nextInt(start, end);
-                                deltaSample[i] = asyncTable.getPriority(ind);
-                            }
 
+                        if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.NONE) {
+                            for (int k = start; k < end; k++) {
+                                if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC) {
+                                    if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
+                                } else {
+                                    if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
+                                }
+                            }
+                        } else {
+                            double threshold;
+                            if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
+                                synchronized (bound) {
+                                    for (int i = 0; i < deltaSample.length; i++) {
+                                        int ind = randomGenerator.nextInt(start, end);
+                                        deltaSample[i] = asyncTable.getPriority(ind);
+                                    }
+                                }
 //                            boolean update = false;
 //                            for (double delta : deltaSample)
 //                                if (delta != 0) {
@@ -108,16 +120,7 @@ public abstract class BaseAsyncRuntime implements Runnable {
 //                                Thread.sleep(1);
 //                                continue;
 //                            }
-                        }
-                        if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.NONE) {
-                            for (int k = start; k < end; k++) {
-                                if (asyncConfig.isSync()) {
-                                    if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
-                                } else {
-                                    if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-                                }
                             }
-                        } else {
                             Arrays.sort(deltaSample);
                             int cutIndex = (int) (deltaSample.length * (1 - SCHEDULE_PORTION));
                             if (cutIndex == 0)
@@ -127,7 +130,7 @@ public abstract class BaseAsyncRuntime implements Runnable {
                             for (int k = start; k < end; k++) {
                                 double delta = asyncTable.getPriority(k);
                                 if (delta >= threshold) {
-                                    if (asyncConfig.isSync()) {
+                                    if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC) {
                                         if (asyncTable.updateLockFree(k, checkerThread.iter))
                                             updateCounter.addAndGet(1);
                                     } else {
@@ -136,27 +139,28 @@ public abstract class BaseAsyncRuntime implements Runnable {
                                 }
                             }
                         }
-                        if (barrier != null) barrier.await();
-                        else {
-                            if (tid == 0) {
-                                if (System.currentTimeMillis() - lastCheckTime >= checkerThread.CHECKER_INTERVAL) {
-                                    checkerThread.notifyCheck();
-                                    lastCheckTime = System.currentTimeMillis();
-                                }
+                        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
+                            if (System.currentTimeMillis() - lastCheckTime >= checkerThread.CHECKER_INTERVAL) {
+                                checkerThread.notifyCheck();
+                                lastCheckTime = System.currentTimeMillis();
                             }
+                        } else {
+                            barrier();
                         }
                     }
-                } catch (InterruptedException | BrokenBarrierException e) {
+                } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             } else {
                 L.info("PRIORITY GLOBALLLLLLLLLLL");
                 try {
                     while (!stop) {
-//                        if (!assigned || asyncConfig.isDynamic()) {
-//                            arrangeTask();
-//                            assigned = true;
-//                        }
+                        int start;
+                        int end;
+                        synchronized (bound) {
+                            start = bound[0];
+                            end = bound[1];
+                        }
 
                         //empty thread, sleep to reduce CPU race
                         if (start == end) {
@@ -166,25 +170,10 @@ public abstract class BaseAsyncRuntime implements Runnable {
                             continue;
                         }
 
-                        if (asyncConfig.getPriorityType() == AsyncConfig.PriorityType.NONE) {
-                            for (int k = start; k < end; k++) {
-                                if (asyncConfig.isSync()) {
-                                    if (asyncTable.updateLockFree(k, checkerThread.iter)) updateCounter.addAndGet(1);
-                                } else {
-                                    if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-                                }
-                            }
-                        } else {
-                            for (int k = start; k < end; k++) {
-                                double delta = asyncTable.getPriority(k);
-                                if (delta >= priorityThreshold) {
-                                    if (asyncConfig.isSync()) {
-                                        if (asyncTable.updateLockFree(k, checkerThread.iter))
-                                            updateCounter.addAndGet(1);
-                                    } else {
-                                        if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
-                                    }
-                                }
+                        for (int k = start; k < end; k++) {
+                            double delta = asyncTable.getPriority(k);
+                            if (delta >= priorityThreshold) {
+                                if (asyncTable.updateLockFree(k)) updateCounter.addAndGet(1);
                             }
                         }
                         if (countDownLatch != null) countDownLatch.countDown();
@@ -205,10 +194,23 @@ public abstract class BaseAsyncRuntime implements Runnable {
             }
         }
 
+        private void barrier() {
+            if (barrier != null) {
+                try {
+                    barrier.await();
+                } catch (InterruptedException | BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
 
         @Override
         public String toString() {
-            return String.format("id: %d range: [%d, %d)", tid, start, end);
+            String str;
+            synchronized (bound) {
+                str = String.format("id: %d range: [%d, %d)", tid, bound[0], bound[1]);
+            }
+            return str;
         }
     }
 
@@ -232,8 +234,12 @@ public abstract class BaseAsyncRuntime implements Runnable {
             } else if (end > size || tid == threadNum - 1) {//block < lastThread's tasks or block > ~
                 end = size;
             }
-            computingThreads[tid].start = start;
-            computingThreads[tid].end = end;
+
+            int[] bound = computingThreads[tid].bound;
+            synchronized (bound) {
+                bound[0] = start;
+                bound[1] = end;
+            }
         }
     }
 

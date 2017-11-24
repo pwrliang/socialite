@@ -10,7 +10,7 @@ public class AsyncTable extends BaseAsyncTable{
     private List\<<PrimitiveList.(keyType)>\> adjList; //if weight graph, src,[dst1, weight1 ,dst2, weight2]
     <else> <! NOTE: for single key program, the dst node is also adj, but for pair program, the dst node is type of pair !>
         <if(IsPairKey.(keyType))>
-            private List\<List\<Pair>\> dstListList;//localInd as index
+            private List\<List\<Pair>\> pairList;//localInd as index
             private Map\<Pair, Integer> keyIndMap;
         <else>
             private <KeyIndMap.(keyType)> keyIndMap;
@@ -55,8 +55,7 @@ public class AsyncTable extends BaseAsyncTable{
         adjList = new <PrimitiveObjectMap.(keyType)>\<>(initSize);
         <endif>
         
-        //<if(IsPairKey.(keyType))>keyDstListMap = new HashMap\<>();<endif>
-        <if(IsPairKey.(keyType))>dstListList = new ArrayList\<>();<endif>
+        <if(IsPairKey.(keyType))>pairList = new ArrayList\<>();<endif>
         
         valueList = new <PrimitiveList.(valueType)>(initSize);
         deltaList = new ArrayList\<>(initSize);
@@ -73,13 +72,7 @@ public class AsyncTable extends BaseAsyncTable{
         <if(keyAsIndex)>
             key = localInd;
         <else>
-            <if(dynamic)>
-            //synchronized(indKeyMap) {
-                key = indKeyMap.get(localInd);
-            //}
-            <else>
             key = indKeyMap.get(localInd);
-            <endif>
         <endif>
 
         <if(IsBoolean.(valueType))>
@@ -102,32 +95,34 @@ public class AsyncTable extends BaseAsyncTable{
             if(valueList.get(localInd) && !sentFlagList.get(localInd)){
                 <PrimitiveList.(keyType)> dstList = adjList.get(key);
                 <! This node has no out-link, DO NOTHING !>
-                if(dstList==null){
+                if(dstList == null)
+                    return true;
+                    
+                for(int i = 0; i\< dstList.size(); i++) {
+                    <keyType> dst = dstList.get(i);
+                    int dstLocalInd;
+                    <if(keyAsIndex)>
+                        dstLocalInd = dst;
+                        if(dstLocalInd >= size)
+                            throw new RuntimeException(String.format("Node %d has no out-link", dstLocalInd));
+                    <else>
+                        <if(dynamic)>
+                            dstLocalInd = keyIndMap.putIfAbsent(dst, addEntry(dst, false, IDENTITY_ELEMENT));
+                        <else>
+                            dstLocalInd = keyIndMap.get(dst);
+                        <endif>
+                    <endif>
 
-                } else {
-                    <! 遍历每个邻接点 !>
-                    synchronized(keyIndMap) {
-                        for(int i = 0; i\< dstList.size(); i++) {
-                            int dstLocalInd;
-                            <keyType> dst = dstList.get(i);
-                            if(keyIndMap.containsKey(dst)) {
-                                dstLocalInd = keyIndMap.get(dst);
-                            } else {
-                                dstLocalInd = addEntry(dst, false, IDENTITY_ELEMENT);
-                            }
-
-                            <! OTHER AGGREGATE FUNCTIONS IS NOT SUPPORTED !>
-                            <if(sync)>
-                                if (iter % 2 == 0) {
-                                    <if(IsCount.(aggrType))>bufferDeltaList.get(adjacentLocalInd).addAndGet(1);<endif>
-                                } else {
-                                    <if(IsCount.(aggrType))>deltaList.get(adjacentLocalInd).addAndGet(1);<endif>
-                                }
-                            <else>
-                                <if(IsCount.(aggrType))>deltaList.get(adjacentLocalInd).addAndGet(1);<endif>
-                            <endif>
+                    <! OTHER AGGREGATE FUNCTIONS IS NOT SUPPORTED !>
+                    <if(sync)>
+                        if (iter % 2 == 0) {
+                            <if(IsCount.(aggrType))>bufferDeltaList.get(dstLocalInd).addAndGet(1);<endif>
+                        } else {
+                            <if(IsCount.(aggrType))>deltaList.get(dstLocalInd).addAndGet(1);<endif>
                         }
-                    }
+                    <else>
+                        <if(IsCount.(aggrType))>deltaList.get(dstLocalInd).addAndGet(1);<endif>
+                    <endif>
                 }
                 sentFlagList.set(localInd, true);
             }
@@ -158,7 +153,7 @@ public class AsyncTable extends BaseAsyncTable{
                 <PrimitiveList.(keyType)> dstList = adjList.get(localInd);
             <else>
                 <if(IsPairKey.(keyType))>
-                    List\<Pair> dstList = dstListList.get(localInd);
+                    List\<Pair> dstList = pairList.get(localInd);
                     if(dstList == null) return true; //for this key, there is no dst node which is normal
                 <else>
                     <PrimitiveList.(keyType)> dstList = adjList.get(key);
@@ -181,17 +176,6 @@ public class AsyncTable extends BaseAsyncTable{
                         throw new RuntimeException(String.format("Node %d has no out-link", dstLocalInd));
                 <else>
                     <if(dynamic)>
-                        //synchronized(keyIndMap) {
-                            /*if(keyIndMap.containsKey(dst))
-                                dstLocalInd = keyIndMap.get(dst);
-                            else
-                                <if(IsPairKey.(keyType))>
-                                dstLocalInd = addEntry(dst.getV0(), dst.getV1(), IDENTITY_ELEMENT, IDENTITY_ELEMENT);
-                                <else>
-                                dstLocalInd = addEntry(dst, IDENTITY_ELEMENT, IDENTITY_ELEMENT);
-                                <endif>*/
-
-                        //}
                         <if(IsPairKey.(keyType))>
                         dstLocalInd = keyIndMap.putIfAbsent(dst, addEntry(dst.getV0(), dst.getV1(), IDENTITY_ELEMENT, IDENTITY_ELEMENT));
                         <else>
@@ -207,11 +191,24 @@ public class AsyncTable extends BaseAsyncTable{
                 <else>
                 <valueType> newDelta = eval(oldDelta <if(weightType)>, weight<endif> <if(extraType)>, extra<endif>);
                 <endif>
-
-                <if(IsSum.(aggrType))>deltaList.get(dstLocalInd).addAndGet(newDelta);<endif>
-                <if(IsMax.(aggrType))>deltaList.get(dstLocalInd).accumulateAndGet(newDelta, Math::max);<endif>
-                <if(IsMin.(aggrType))>deltaList.get(dstLocalInd).accumulateAndGet(newDelta, Math::min);<endif>
-                <if(IsCount.(aggrType))>deltaList.get(dstLocalInd).addAndGet(oldDelta);<endif>
+                <if(sync)>
+                    if (iter % 2 == 0) {
+                        <if(IsSum.(aggrType))>bufferDeltaList.get(dstLocalInd).addAndGet(newDelta);<endif>
+                        <if(IsMax.(aggrType))>bufferDeltaList.get(dstLocalInd).accumulateAndGet(newDelta, Math::max);<endif>
+                        <if(IsMin.(aggrType))>bufferDeltaList.get(dstLocalInd).accumulateAndGet(newDelta, Math::min);<endif>
+                        <if(IsCount.(aggrType))>bufferDeltaList.get(dstLocalInd).addAndGet(1);<endif>
+                    } else {
+                        <if(IsSum.(aggrType))>deltaList.get(dstLocalInd).addAndGet(newDelta);<endif>
+                        <if(IsMax.(aggrType))>deltaList.get(dstLocalInd).accumulateAndGet(newDelta, Math::max);<endif>
+                        <if(IsMin.(aggrType))>deltaList.get(dstLocalInd).accumulateAndGet(newDelta, Math::min);<endif>
+                        <if(IsCount.(aggrType))>deltaList.get(dstLocalInd).addAndGet(1);<endif>
+                    }
+                <else>
+                    <if(IsSum.(aggrType))>deltaList.get(dstLocalInd).addAndGet(newDelta);<endif>
+                    <if(IsMax.(aggrType))>deltaList.get(dstLocalInd).accumulateAndGet(newDelta, Math::max);<endif>
+                    <if(IsMin.(aggrType))>deltaList.get(dstLocalInd).accumulateAndGet(newDelta, Math::min);<endif>
+                    <if(IsCount.(aggrType))>deltaList.get(dstLocalInd).addAndGet(oldDelta);<endif>
+                <endif>
             }
         <endif>
         return true;
@@ -258,7 +255,7 @@ public class AsyncTable extends BaseAsyncTable{
                 Integer ind = keyIndMap.get(key);
                 if (ind != null) return ind;
                 List\<Pair> adjList = join(key);
-                dstListList.add(adjList);
+                pairList.add(adjList);
             <else>
                 if (keyIndMap.containsKey(key))
                     return keyIndMap.get(key);
@@ -295,11 +292,20 @@ public class AsyncTable extends BaseAsyncTable{
                 return true;
             }
             <else>
-            @Override
-            public boolean visit(<keyType> key, <valueType> initDelta) {
-                addEntry(key, IDENTITY_ELEMENT, initDelta);
-                return true;
-            }
+                <if(IsBoolean.(valueType))>
+                @Override
+                public boolean visit(<keyType> key) {
+                    //init params for count aggregate function, boolean value
+                    addEntry(key, true, 1);
+                    return true;
+                }
+                <else>
+                @Override
+                public boolean visit(<keyType> key, <deltaType> initDelta) {
+                    addEntry(key, IDENTITY_ELEMENT, initDelta);
+                    return true;
+                }
+                <endif>
             <endif>
         };
     }

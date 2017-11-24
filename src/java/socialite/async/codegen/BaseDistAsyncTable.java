@@ -69,8 +69,9 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
         long startTime = System.currentTimeMillis();
         //in sync mode, all computing thread write to message table when barrier is triggered, so we don't have to wait
-        while (sendableMessageTable.size() < messageTableUpdateThreshold
-                && !AsyncConfig.get().isSync() && !AsyncConfig.get().isBarrier()) {
+        while (AsyncConfig.get().getEngineType()== AsyncConfig.EngineType.ASYNC &&
+                sendableMessageTable.size() < messageTableUpdateThreshold
+               ) {
 //            Thread.sleep(1);
             if ((System.currentTimeMillis() - startTime) >= AsyncConfig.get().getMessageTableWaitingInterval())
                 break;

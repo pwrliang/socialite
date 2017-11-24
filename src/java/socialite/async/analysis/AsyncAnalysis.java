@@ -273,7 +273,7 @@ public class AsyncAnalysis{
     }
 
     public String getRecPName() {
-        return recRules.get(0).getHead().name();
+        return resultRule.getHead().name();
     }
 
     public String getEdgePName() {
