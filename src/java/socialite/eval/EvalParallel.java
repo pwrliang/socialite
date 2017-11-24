@@ -246,7 +246,7 @@ public class EvalParallel extends Eval {
             try {
             while (it.hasNext()) {
                 RuleComp rc = it.next();
-                //L.info("eval " + rc);
+//                L.info("eval " + rc);
                 issued |= eval(rc);
             }
         } finally {

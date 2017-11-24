@@ -27,22 +27,27 @@ public class LocalAsyncEngine {
     private AsyncAnalysis asyncAnalysis;
     private AsyncCodeGenMain asyncCodeGenMain;
     private LocalEngine localEngine;
+    private StringBuilder datalogStats;
 
     public LocalAsyncEngine(String program) {
-        localEngine = new LocalEngine();
         Parser parser = new Parser(program);
         parser.parse(program);
         Analysis tmpAn = new Analysis(parser);
-        tmpAn.run();
-        asyncAnalysis = new AsyncAnalysis(tmpAn);
-        List<String> decls = parser.getTableDeclMap().values().stream().map(TableDecl::getDeclText).collect(Collectors.toList());
-        List<Rule> rules = tmpAn.getRules().stream().filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
-        StringBuilder datalogStats = new StringBuilder();
+
         //由socialite执行表创建和非递归规则
+        asyncAnalysis = new AsyncAnalysis(tmpAn);
+        datalogStats = new StringBuilder();
+        localEngine = new LocalEngine();
+
+        tmpAn.run();
+        List<Rule> rules = tmpAn.getRules().stream().filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
+        List<String> decls = parser.getTableDeclMap().values().stream().map(TableDecl::getDeclText).collect(Collectors.toList());
+
+        if (rules.stream().noneMatch(Rule::inScc))
+            throw new SociaLiteException("This Datalog program has no recursive statements");
+        //create tables
         if (!AsyncConfig.get().isDebugging())
             decls.forEach(decl -> datalogStats.append(decl).append("\n"));
-        boolean existLeftRec = rules.stream().anyMatch(Rule::inScc);
-        if (!existLeftRec) throw new SociaLiteException("This Datalog program has no recursive statements");
         for (Rule rule : rules) {
             boolean added = false;
             if (rule.inScc() && rule.getDependingRules().size() > 0) {
@@ -55,7 +60,6 @@ public class LocalAsyncEngine {
                 }
         }
         //run non-recursive rules
-        localEngine.run(datalogStats.toString());
     }
 
     private void compile() {
@@ -66,6 +70,7 @@ public class LocalAsyncEngine {
     }
 
     private void runReally(QueryVisitor queryVisitor) {
+        localEngine.run(datalogStats.toString());//execute non-recursive rules
         TableInstRegistry registry = localEngine.getRuntime().getTableRegistry();
 
         TableInst[] recInst = registry.getTableInstArray(localEngine.getRuntime().getTableMap().get(asyncAnalysis.getRecPName()).id());
@@ -90,10 +95,10 @@ public class LocalAsyncEngine {
     public void run() {
         AsyncConfig asyncConfig = AsyncConfig.get();
         compile();
-        List<String> initStats = asyncCodeGenMain.getInitStats();
+        //List<String> initStats = asyncCodeGenMain.getInitStats();
 
         if (!asyncConfig.isDebugging()) {
-            initStats.forEach(initStat -> localEngine.run(initStat));
+            //initStats.forEach(initStat -> localEngine.run(initStat));
             String savePath = AsyncConfig.get().getSavePath();
             TextUtils textUtils = null;
             if (savePath.length() > 0) {

@@ -252,17 +252,16 @@ public class AsyncTable extends BaseAsyncTable{
     private synchronized int addEntry(<if(IsPairKey.(keyType))>int col1OfKey, int col2OfKey<else><keyType> key<endif>, <valueType> value, <deltaType> delta){
         <if(!keyAsIndex)>
             <if(IsPairKey.(keyType))>
-            <keyType> key = new Pair(col1OfKey, col2OfKey);
+                <keyType> key = new Pair(col1OfKey, col2OfKey);
+                Integer ind = keyIndMap.get(key);
+                if (ind != null) return ind;
+                List\<Pair> adjList = join(key);
+                dstListList.add(adjList);
+            <else>
+                if (keyIndMap.containsKey(key))
+                    return keyIndMap.get(key);
             <endif>
 
-            Integer ind = keyIndMap.get(key);
-            if (ind != null) return ind;
-
-            <if(IsPairKey.(keyType))>
-            List\<Pair> adjList = join(key);
-
-            dstListList.add(adjList);
-            <endif>
             keyIndMap.put(key, size);
             indKeyMap.add(key);
         <endif>
