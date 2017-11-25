@@ -7,7 +7,7 @@ import socialite.tables.Tuple;
 
 public class ForMaster {
 
-
+//-Dsocialite.master=master -Dsocialite.worker.num=5 -Dsocialite.output.dir=gen -Dlog4j.configuration=file:/home/gengl/socialite/conf/log4j.properties
     public static void main(String[] args) throws InterruptedException {
 //        LocalEngine localEngine = new LocalEngine();
 //        localEngine.run("edge1(int src:0..875712, (int dst)).\n" +
@@ -40,10 +40,12 @@ public class ForMaster {
             Thread.sleep(100);
         ClientEngine clientEngine = new ClientEngine();
 //        clientEngine.run("edge(int src, int dst).");
-        clientEngine.run("edge(int src, int dst).");
-        clientEngine.run("edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/wikipedia_link_en/edge_pair.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).");
+//        clientEngine.run("edge(int src, int dst).");
+//        clientEngine.run("edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/wikipedia_link_en/edge_pair.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).");
 //        clientEngine.run("edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/Google/edge.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).\n" );
-
+        clientEngine.run("edge(int src:0..875712, (int dst)).\n" +
+                "edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/Google/edge.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).\n");
+        clientEngine.test();
 //        clientEngine.run("edge1(int src:0..875712, (int dst)).\n" +
 //                "edge2(int src:0..875712, (int dst)).\n" +
 //                "edge_join(int src:0..875712, (int dst)).\n" +
@@ -51,19 +53,19 @@ public class ForMaster {
 //                "edge2(s,t) :- edge1(s, t).\n" +
 //                "edge_join(src, dst) :- edge1(src, d), edge2(d, dst).");
 //        {
-        int[] tmp = new int[1];
-        long[] sum = new long[1];
-        clientEngine.run("?- edge(s, t).", new QueryVisitor() {
-            @Override
-            public boolean visit(Tuple _0) {
-                sum[0] += _0.getInt(0);
-                synchronized (tmp) {
-                    tmp[0]++;
-                }
-                return true;
-            }
-        }, 0);
-        System.out.println(tmp[0]);
+//        int[] tmp = new int[1];
+//        long[] sum = new long[1];
+//        clientEngine.run("?- edge(s, t).", new QueryVisitor() {
+//            @Override
+//            public boolean visit(Tuple _0) {
+//                sum[0] += _0.getInt(0);
+//                synchronized (tmp) {
+//                    tmp[0]++;
+//                }
+//                return true;
+//            }
+//        }, 0);
+//        System.out.println(tmp[0]);
 //        }
 //        clientEngine.shutdown();
 

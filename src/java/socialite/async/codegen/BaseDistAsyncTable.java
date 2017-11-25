@@ -18,18 +18,16 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
     protected final int workerNum;
     protected final int myWorkerId;
     protected final DistTablePartitionMap partitionMap;
-    protected final int indexForTableId;
-    protected final int[] myIdxWorkerIdMap;
+    protected final int tableIdForIndex;
 
     protected final int messageTableUpdateThreshold;
     protected final int initSize;
 
-    public BaseDistAsyncTable(Class<?> messageTableClass,  DistTablePartitionMap partitionMap, int indexForTableId, int[] myIdxWorkerIdMap) {
+    public BaseDistAsyncTable(Class<?> messageTableClass,  DistTablePartitionMap partitionMap, int tableIdForIndex) {
         this.workerNum = ClusterConf.get().getNumWorkers();
         this.myWorkerId = ClusterConf.get().getRank() - 1;
         this.partitionMap = partitionMap;
-        this.indexForTableId = indexForTableId;
-        this.myIdxWorkerIdMap = myIdxWorkerIdMap;
+        this.tableIdForIndex = tableIdForIndex;
         this.messageTableUpdateThreshold = AsyncConfig.get().getMessageTableUpdateThreshold();
         this.initSize = AsyncConfig.get().getInitSize();
 

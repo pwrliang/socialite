@@ -5,7 +5,7 @@ package socialite.async.codegen;
 <importForMsgTable()>
 public class MessageTable extends MessageTableBase {
     <! keyType should be int\long\key !>
-    private Map\<<WrappedTypeMap.(keyType)>, <TypeAtomicMap.(deltaType)>\> keyDeltaMap;
+    private Map\<<WrappedType.(keyType)>, <TypeAtomic.(deltaType)>\> keyDeltaMap;
     <if(IsInt.(deltaType))>
     public static final <deltaType> IDENTITY_ELEMENT = <IntegerIdentityElement.(aggrType)>;
     <elseif(IsLong.(deltaType))>
@@ -21,14 +21,14 @@ public class MessageTable extends MessageTableBase {
     }
 
     public void apply(<keyType> key, <deltaType> delta) {
-        <TypeAtomicMap.(deltaType)> atomicDelta = keyDeltaMap.putIfAbsent(key, new <TypeAtomicMap.(deltaType)>(<if(!IsCount.(aggrType))>delta<else>1<endif>));
+        <TypeAtomic.(deltaType)> atomicDelta = keyDeltaMap.putIfAbsent(key, new <TypeAtomic.(deltaType)>(<if(!IsCount.(aggrType))>delta<else>1<endif>));
         if (atomicDelta != null) {
             <if(IsSum.(aggrType))>
-            atomicDelta.accumulateAndGet(delta, <WrappedTypeMap.(deltaType)>::sum);
+            atomicDelta.accumulateAndGet(delta, <WrappedType.(deltaType)>::sum);
             <elseif(IsMax.(aggrType))>
-            atomicDelta.accumulateAndGet(delta, <WrappedTypeMap.(deltaType)>::max);
+            atomicDelta.accumulateAndGet(delta, <WrappedType.(deltaType)>::max);
             <elseif(IsMin.(aggrType))>
-            atomicDelta.accumulateAndGet(delta, <WrappedTypeMap.(deltaType)>::min);
+            atomicDelta.accumulateAndGet(delta, <WrappedType.(deltaType)>::min);
             <elseif(IsCount.(aggrType))>
             atomicDelta.addAndGet(delta);
             <endif>
@@ -44,7 +44,7 @@ public class MessageTable extends MessageTableBase {
     }
 
     @Override
-    public Map\<<WrappedTypeMap.(keyType)>, <TypeAtomicMap.(deltaType)>\> get<WrappedTypeMap.(keyType)><WrappedTypeMap.(deltaType)>Map() {
+    public Map\<<WrappedType.(keyType)>, <TypeAtomic.(deltaType)>\> get<WrappedType.(keyType)><WrappedType.(deltaType)>Map() {
         return keyDeltaMap;
     }
 
@@ -55,8 +55,8 @@ public class MessageTable extends MessageTableBase {
 
     @Override
     public double accumulate() {
-        return keyDeltaMap.values().stream().map(MyAtomic<WrappedTypeMap.(deltaType)>::get)
-        .filter(val-> val != IDENTITY_ELEMENT).reduce(<PrimitiveInitValue.(deltaType)>, <WrappedTypeMap.(deltaType)>::sum) + 0.0;
+        return keyDeltaMap.values().stream().map(MyAtomic<WrappedType.(deltaType)>::get)
+        .filter(val-> val != IDENTITY_ELEMENT).reduce(<PrimitiveInitValue.(deltaType)>, <WrappedType.(deltaType)>::sum) + 0.0;
     }
 }
 >>

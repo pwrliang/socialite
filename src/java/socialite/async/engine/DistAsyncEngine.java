@@ -35,24 +35,34 @@ public class DistAsyncEngine implements Runnable {
     private AsyncAnalysis asyncAnalysis;
     private AsyncCodeGenMain asyncCodeGenMain;
     private NetworkThread networkThread;
+    private StringBuilder datalogStats;
 
     public DistAsyncEngine(String program) {
-        workerNum = ClusterConf.get().getNumWorkers();
-        clientEngine = new ClientEngine();
         Parser parser = new Parser(program);
         parser.parse(program);
         Analysis tmpAn = new Analysis(parser);
-        tmpAn.run();
 
         asyncAnalysis = new AsyncAnalysis(tmpAn);
-        List<String> decls = parser.getTableDeclMap().values().stream().map(TableDecl::getDeclText).collect(Collectors.toList());
+        datalogStats = new StringBuilder();
+        clientEngine = new ClientEngine();
+        workerNum = ClusterConf.get().getNumWorkers();
+        networkThread = new NetworkThread();
+
+        tmpAn.run();
+
+
         List<Rule> rules = tmpAn.getRules().stream().filter(rule -> !(rule instanceof DeltaRule)).collect(Collectors.toList());
-        StringBuilder datalogStats = new StringBuilder();
+        List<String> decls = parser.getTableDeclMap().values().stream().map(TableDecl::getDeclText).collect(Collectors.toList());
+
         //由socialite执行表创建和非递归规则
         if (!AsyncConfig.get().isDebugging())
             decls.forEach(decl -> datalogStats.append(decl).append("\n"));
-        boolean existLeftRec = rules.stream().anyMatch(Rule::inScc);
-        if (!existLeftRec) throw new SociaLiteException("This Datalog program has no recursive statements");
+
+        if (rules.stream().noneMatch(Rule::inScc))
+            throw new SociaLiteException("This Datalog program has no recursive statements");
+        //create tables
+        if (!AsyncConfig.get().isDebugging())
+            decls.forEach(decl -> datalogStats.append(decl).append("\n"));
         for (Rule rule : rules) {
             boolean added = false;
             if (rule.inScc() && rule.getDependingRules().size() > 0) {
@@ -64,10 +74,6 @@ public class DistAsyncEngine implements Runnable {
                     datalogStats.append(rule.getRuleText()).append("\n");
                 }
         }
-        clientEngine.run(datalogStats.toString());
-
-        networkThread = new NetworkThread();
-        networkThread.start();
     }
 
     private void compile() {
@@ -80,6 +86,7 @@ public class DistAsyncEngine implements Runnable {
     @Override
     public void run() {
         compile();
+        runReally();
         sendCmd();
         FeedBackThread feedBackThread = new FeedBackThread();
         feedBackThread.start();
@@ -89,6 +96,11 @@ public class DistAsyncEngine implements Runnable {
             e.printStackTrace();
         }
         clientEngine.shutdown();
+    }
+
+    private void runReally() {
+        networkThread.start();
+        clientEngine.run(datalogStats.toString());
     }
 
     private void sendCmd() {

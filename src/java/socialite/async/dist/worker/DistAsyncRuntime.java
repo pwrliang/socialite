@@ -28,7 +28,6 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CyclicBarrier;
 
 public class DistAsyncRuntime extends BaseAsyncRuntime {
     private static final Log L = LogFactory.getLog(DistAsyncRuntime.class);
@@ -36,7 +35,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
     private final int workerNum;
     private NetworkThread networkThread;
     private Payload payload;
-    private volatile boolean stopTransmiting;
+    private volatile boolean stopTransmitting;
 
     DistAsyncRuntime() {
         workerNum = ClusterConf.get().getNumWorkers();
@@ -65,12 +64,9 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
     private void waitingCmd() {
         byte[] data = new byte[1024 * 1024];
-        int[] myIdxWorkerId = new int[]{SRuntimeWorker.getInst().getWorkerAddrMap().myIndex(), myWorkerId};
-        SerializeTool serializeTool = new SerializeTool.Builder().build();
         //send myIdx->myWorkerId (which equals Rank - 1)
-        networkThread.send(serializeTool.toBytes(myIdxWorkerId), 0, MsgType.REPORT_MYIDX.ordinal());
-        L.info("myIdx - worker id sent");
         //read Payload(edge name, byte codes...)
+        SerializeTool serializeTool = new SerializeTool.Builder().build();
         data = networkThread.read(0, MsgType.NOTIFY_INIT.ordinal());
         payload = serializeTool.fromBytes(data, Payload.class);
         AsyncConfig.set(payload.getAsyncConfig());
@@ -191,7 +187,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         @Override
         public void run() {
             try {
-                while (!stopTransmiting) {
+                while (!stopTransmitting) {
 
                     for (int sendToWorkerId = 0; sendToWorkerId < workerNum; sendToWorkerId++) {
                         if (sendToWorkerId == myWorkerId) continue;
@@ -221,7 +217,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
         @Override
         public void run() {
-            while (!stopTransmiting) {
+            while (!stopTransmitting) {
                 for (int recvFromWorkerId = 0; recvFromWorkerId < workerNum; recvFromWorkerId++) {
                     if (recvFromWorkerId == myWorkerId) continue;
                     byte[] data = networkThread.read(recvFromWorkerId, MsgType.MESSAGE_TABLE.ordinal());
@@ -284,7 +280,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
                     if (feedback[0]) {
                         L.info("waiting for flush");
-                        stopTransmiting = true;
+                        stopTransmitting = true;
                         networkThread.shutdown();
                         L.info("flushed");
                         done();

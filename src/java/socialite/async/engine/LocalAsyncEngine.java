@@ -59,7 +59,6 @@ public class LocalAsyncEngine {
                     datalogStats.append(rule.getRuleText()).append("\n");
                 }
         }
-        //run non-recursive rules
     }
 
     private void compile() {

@@ -10,6 +10,7 @@ import socialite.async.engine.LocalAsyncEngine;
 import socialite.async.util.TextUtils;
 import socialite.dist.master.MasterNode;
 import socialite.dist.worker.WorkerNode;
+import socialite.engine.ClientEngine;
 import socialite.util.SociaLiteException;
 import socialite.yarn.ClusterConf;
 
@@ -39,6 +40,12 @@ public class DistEntry {
             AsyncConfig.parse(TextUtils.readText(args[0]));
             L.info("master started");
             MasterNode.startMasterNode();
+//            while (!MasterNode.getInstance().allOneLine())
+//                Thread.sleep(100);
+//            ClientEngine clientEngine = new ClientEngine();
+//            clientEngine.run("edge(int src:0..875712, (int dst)).\n" +
+//                    "edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/Google/edge.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).\n");
+//            clientEngine.test();
             AsyncMaster asyncMaster = new AsyncMaster(AsyncConfig.get().getDatalogProg());
             asyncMaster.startMaster();
 //                IntStream.rangeClosed(1, workerNum).parallel().forEach(dest ->
@@ -49,6 +56,10 @@ public class DistEntry {
             AsyncWorker worker = new AsyncWorker();
             worker.startWorker();
 //                MPI.COMM_WORLD.Recv(new byte[1], 0, 1, MPI.BYTE, 0, MsgType.EXIT.ordinal());
+        }
+        boolean f=true;
+        while (f){
+            Thread.sleep(100);
         }
         MPI.Finalize();
         L.info("process " + machineId + " exit.");
