@@ -255,15 +255,6 @@ public abstract class BaseAsyncRuntime implements Runnable {
             }
         }
 
-        protected void done() {
-            L.info("call done");
-            stop = true;
-            stopWatch.stop();
-            L.info("UPDATE_TIMES:" + updateCounter.get());
-            L.info("DONE ELAPSED:" + stopWatch.getTime());
-            L.info("CHECKER THREAD EXITED");
-        }
-
         void waitingCheck() throws InterruptedException {
             synchronized (lock) {
                 while (!check) {
@@ -271,6 +262,15 @@ public abstract class BaseAsyncRuntime implements Runnable {
                 }
             }
             check = false;
+        }
+
+        protected void done() {
+            L.info("call done");
+            stop = true;
+            stopWatch.stop();
+            L.info("UPDATE_TIMES:" + updateCounter.get());
+            L.info("DONE ELAPSED:" + stopWatch.getTime());
+            L.info("CHECKER THREAD EXITED");
         }
 
         void notifyCheck() {

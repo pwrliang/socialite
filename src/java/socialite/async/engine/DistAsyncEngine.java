@@ -21,10 +21,8 @@ import socialite.util.SociaLiteException;
 import socialite.yarn.ClusterConf;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -46,7 +44,7 @@ public class DistAsyncEngine implements Runnable {
         datalogStats = new StringBuilder();
         clientEngine = new ClientEngine();
         workerNum = ClusterConf.get().getNumWorkers();
-        networkThread = new NetworkThread();
+        networkThread = NetworkThread.get();
 
         tmpAn.run();
 
@@ -104,30 +102,18 @@ public class DistAsyncEngine implements Runnable {
     }
 
     private void sendCmd() {
-        List<String> initStats = asyncCodeGenMain.getInitStats();
-        Map<Integer, Integer> myIdxWorkerIdMap = new HashMap<>();
         SerializeTool serializeTool = new SerializeTool.Builder().build();
 
-        if (!AsyncConfig.get().isDebugging())
-            initStats.forEach(initStat -> clientEngine.run(initStat));
-
-        IntStream.rangeClosed(1, workerNum).forEach(source -> {
-            byte[] data = networkThread.read(source, MsgType.REPORT_MYIDX.ordinal());
-            L.info("recved");
-            int[] myIdxWorkerId = new int[2];
-            myIdxWorkerId = serializeTool.fromBytes(data, myIdxWorkerId.getClass());
-//            MPI.COMM_WORLD.Recv(buff, 0, 2, MPI.INT, source, MsgType.REPORT_MYIDX.ordinal());
-
-            myIdxWorkerIdMap.put(myIdxWorkerId[0], myIdxWorkerId[1]);
-        });
 
         LinkedHashMap<String, byte[]> compiledClasses = asyncCodeGenMain.getCompiledClasses();
-        Payload payload = new Payload(AsyncConfig.get(), myIdxWorkerIdMap, compiledClasses, asyncAnalysis.getEdgePName());
-
+        Payload payload = new Payload(AsyncConfig.get(), compiledClasses);
+        payload.setRecTableName(asyncAnalysis.getRecPName());
+        payload.setEdgeTableName(asyncAnalysis.getEdgePName());
+        payload.setExtraTableName(asyncAnalysis.getExtraPName());
         byte[] data = serializeTool.toBytes(payload);
+        L.info("worker num:" + workerNum);
         IntStream.rangeClosed(1, workerNum).forEach(dest ->
-//                MPI.COMM_WORLD.Send(data, 0, data.length, MPI.BYTE, dest, MsgType.NOTIFY_INIT.ordinal())
-                        networkThread.send(data, dest, MsgType.NOTIFY_INIT.ordinal())
+                networkThread.send(data, dest, MsgType.NOTIFY_INIT.ordinal())
         );
     }
 
@@ -177,6 +163,10 @@ public class DistAsyncEngine implements Runnable {
 //                            break;
 //                        }
                     } else {
+                        if (stopWatch == null) {
+                            stopWatch = new StopWatch();
+                            stopWatch.start();
+                        }
                         //sleep first to prevent stop before compute
                         Thread.sleep(AsyncConfig.get().getCheckInterval());
                         SerializeTool serializeTool = new SerializeTool.Builder().build();
@@ -194,11 +184,6 @@ public class DistAsyncEngine implements Runnable {
                             totalRx += partialValue[2];
                             totalTx += partialValue[3];
                         }
-                        //when first received partial value, we start stopwatch
-                        if (stopWatch == null) {
-                            stopWatch = new StopWatch();
-                            stopWatch.start();
-                        }
 
                         termOrNot[0] = isTerm();
                         if (asyncConfig.isNetworkInfo())
@@ -211,7 +196,6 @@ public class DistAsyncEngine implements Runnable {
                         if (termOrNot[0]) {
                             stopWatch.stop();
                             L.info("ASYNC MODE - TERM_CHECK_DETERMINED_TO_STOP ELAPSED " + stopWatch.getTime());
-                            shutdown();
                             break;
                         }
                     }
@@ -253,9 +237,5 @@ public class DistAsyncEngine implements Runnable {
             }
             return BaseAsyncRuntime.eval(accumulatedSum);
         }
-    }
-
-    private void shutdown() {
-        networkThread.shutdown();
     }
 }

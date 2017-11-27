@@ -6,7 +6,6 @@ import mpi.Request;
 import mpi.Status;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import socialite.async.engine.DistAsyncEngine;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -68,6 +67,18 @@ public class NetworkThread extends Thread {
     private final List<Request> activeSends = new LinkedList<>();
     private final List<RecvRequest> recvList = new LinkedList<>();
     private volatile boolean shutdown;
+    private static NetworkThread instance;
+
+    private NetworkThread() {
+        L.info("Network thread created");
+    }
+
+    public synchronized static NetworkThread get() {
+        if (instance == null) {
+            instance = new NetworkThread();
+        }
+        return instance;
+    }
 
     @Override
     public void run() {

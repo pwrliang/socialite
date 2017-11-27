@@ -4,7 +4,7 @@ CHECK_COND = E
 CHECK_THRESHOLD = 0
 SYNC = FALSE
 DYNAMIC = TRUE
-THREAD_NUM = 1
+THREAD_NUM = 4
 PRINT_RESULT = TRUE
 RULE:
 sure(int X:0..100).
@@ -12,9 +12,19 @@ cntComing(int X:0..100, int N).
 friend(int X:0..100, (int Y)).
 coming(int X:0..100).
 
-sure(X) :- l=$read("hdfs://master:9000/examples/prog9_sure.txt"), X=$toInt(l).
-friend(X, Y) :- l=$read("hdfs://master:9000/examples/prog9_edge.txt"), (s1, s2)=$split(l, "	"), X=$toInt(s1), Y=$toInt(s2).
+sure(X) :- l=$read("/home/gengl/socialite/examples/prog9_sure.txt"), X=$toInt(l).
+friend(X, Y) :- l=$read("/home/gengl/socialite/examples/prog9_edge.txt"), (s1, s2)=$split(l, "	"), X=$toInt(s1), Y=$toInt(s2).
 
 coming(X) :- sure(X).
 cntComing(Y, $dcount(1)) :- coming(X), friend(X, Y).
 coming(X) :- cntComing(X, N), N >= 3.
+//result:
+//2
+//3
+//5
+//8
+//9
+//10
+//4
+//6
+//7

@@ -3,8 +3,8 @@ CHECK_TYPE = VALUE
 CHECK_COND = GE
 CHECK_THRESHOLD = 0.9999
 PRIORITY = FALSE
-#SYNC = TRUE
-#LOCK = TRUE
+# ASYNC/SYNC/SEMI-ASYNC
+ENGINE_TYPE = SEMI-ASYNC
 SCHEDULE_PORTION = 0.2
 DYNAMIC = FALSE
 MESSAGE_TABLE_UPDATE_THRESHOLD = 0
@@ -18,12 +18,12 @@ Rank(int n:0..4, double rank).
 Edge(int n:0..4, (int t)).
 EdgeCnt(int n:0..4, int cnt).
 
-Edge(s, t) :- l=$read("/home/gongsf/socialite/examples/prog2_edge.txt"), (s1,s2)=$split(l, "	"),
+Edge(s, t) :- l=$read("/home/gengl/socialite/examples/prog2_edge.txt"), (s1,s2)=$split(l, "	"),
              s=$toInt(s1), t=$toInt(s2).
 
 EdgeCnt(s, $inc(1)) :- Edge(s, t).
 
-Node(n) :- l=$read("/home/gongsf/socialite/examples/prog2_node.txt"), n=$toInt(l).
+Node(n) :- l=$read("/home/gengl/socialite/examples/prog2_node.txt"), n=$toInt(l).
 
 Rank(n, r) :- Node(n), r = 0.2 / 4.
 Rank(y, $dsum(r1)) :- Rank(x, r), Edge(x, y),  EdgeCnt(x, d), r1 = 0.8 * r / d.

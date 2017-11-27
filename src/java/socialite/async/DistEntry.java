@@ -4,22 +4,18 @@ import mpi.MPI;
 import mpi.MPIException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import socialite.async.dist.MsgType;
 import socialite.async.dist.master.AsyncMaster;
 import socialite.async.dist.worker.AsyncWorker;
-import socialite.async.engine.LocalAsyncEngine;
+import socialite.async.util.NetworkThread;
 import socialite.async.util.TextUtils;
 import socialite.dist.master.MasterNode;
 import socialite.dist.worker.WorkerNode;
-import socialite.engine.ClientEngine;
 import socialite.util.SociaLiteException;
 import socialite.yarn.ClusterConf;
 
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.stream.IntStream;
 
 public class DistEntry {
     private static final Log L = LogFactory.getLog(DistEntry.class);
@@ -48,21 +44,21 @@ public class DistEntry {
 //            clientEngine.test();
             AsyncMaster asyncMaster = new AsyncMaster(AsyncConfig.get().getDatalogProg());
             asyncMaster.startMaster();
-//                IntStream.rangeClosed(1, workerNum).parallel().forEach(dest ->
-//                        MPI.COMM_WORLD.send(new byte[1], 1, MPI.BYTE, dest, MsgType.EXIT.ordinal()));
+            IntStream.rangeClosed(1, workerNum).forEach(dest ->
+                    NetworkThread.get().send(new byte[1], dest, MsgType.EXIT.ordinal())
+            );
         } else {
             L.info("Worker Started " + machineId);
             WorkerNode.startWorkerNode();
             AsyncWorker worker = new AsyncWorker();
             worker.startWorker();
-//                MPI.COMM_WORLD.Recv(new byte[1], 0, 1, MPI.BYTE, 0, MsgType.EXIT.ordinal());
+            NetworkThread.get().read(0, MsgType.EXIT.ordinal());
         }
-        boolean f=true;
-        while (f){
-            Thread.sleep(100);
-        }
+        NetworkThread.get().shutdown();
+        NetworkThread.get().join();
         MPI.Finalize();
         L.info("process " + machineId + " exit.");
+        System.exit(0);
     }
 
 }

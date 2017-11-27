@@ -17,7 +17,6 @@ public class AsyncCodeGenMain {
     private static final Log L = LogFactory.getLog(AsyncCodeGenMain.class);
     private AsyncAnalysis asyncAn;
     private Class<?> asyncTable;
-    private List<String> initStats;
     private LinkedHashMap<String, byte[]> compiledClasses;
 
     public AsyncCodeGenMain(AsyncAnalysis asyncAn) {
@@ -26,14 +25,12 @@ public class AsyncCodeGenMain {
     }
 
     public void generateSharedMem() {
-        genInitTableStats();
         compileAsyncTable();
         L.info("AsyncTable compiled");
         L.info("AsyncRuntime compiled");
     }
 
     public void generateDist() {
-        genInitTableStats();
         compileMessageTable();
         L.info("MessageTable compiled");
         compileDistAsyncTable();
@@ -76,13 +73,6 @@ public class AsyncCodeGenMain {
         compiledClasses.putAll(c.getCompiledClasses());
     }
 
-    public void genInitTableStats() {
-        AsyncCodeGen asyncCodeGen = new AsyncCodeGen(asyncAn);
-//        String stats = asyncCodeGen.generateInitTable();
-//        String[] statArr = stats.replace("\r", "").replace("\n", "").split("\\$");
-//        initStats = Arrays.stream(statArr).map(String::trim).collect(Collectors.toList());
-    }
-
     private void compileAsyncTable() {
         AsyncCodeGen asyncCodeGen = new AsyncCodeGen(asyncAn);
         String asyncTableCode = asyncCodeGen.generateAsyncTable();
@@ -101,10 +91,6 @@ public class AsyncCodeGenMain {
         asyncTable = Loader.forName(PACKAGE_NAME + "." + className);
         if (asyncTable == null)
             throw new SociaLiteException("Load AsyncTable Fail!!!");
-    }
-
-    public List<String> getInitStats() {
-        return initStats;
     }
 
     public Class<?> getAsyncTable() {

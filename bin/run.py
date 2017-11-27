@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # -*- coding:utf-8 -*-
 from common import *
+import sys
 
 if len(sys.argv) != 2:
     raise IOError("Datalog Program is nedded")

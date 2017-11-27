@@ -22,7 +22,6 @@ import socialite.visitors.VisitorImpl;
 import socialite.yarn.ClusterConf;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -34,13 +33,15 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
     private final int myWorkerId;
     private final int workerNum;
     private NetworkThread networkThread;
+    private Sender sender;
+    private Receiver receiver;
     private Payload payload;
     private volatile boolean stopTransmitting;
 
     DistAsyncRuntime() {
         workerNum = ClusterConf.get().getNumWorkers();
         myWorkerId = ClusterConf.get().getRank() - 1;
-        networkThread = new NetworkThread();
+        networkThread = NetworkThread.get();
         networkThread.start();
     }
 
@@ -50,9 +51,9 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         SRuntimeWorker runtimeWorker = SRuntimeWorker.getInst();
         TableInstRegistry tableInstRegistry = runtimeWorker.getTableRegistry();
         Map<String, Table> tableMap = runtimeWorker.getTableMap();
-        TableInst[] initTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get("InitTable").id());
+        TableInst[] initTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getRecTableName()).id());
         TableInst[] edgeTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getEdgeTableName()).id());
-        TableInst[] extraTableInstArr = null;//TODO finish
+        TableInst[] extraTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getExtraTableName()).id());
 
         if (loadData(initTableInstArr, edgeTableInstArr, extraTableInstArr)) {//this worker is idle, stop
             createThreads();
@@ -63,11 +64,8 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
     }
 
     private void waitingCmd() {
-        byte[] data = new byte[1024 * 1024];
-        //send myIdx->myWorkerId (which equals Rank - 1)
-        //read Payload(edge name, byte codes...)
         SerializeTool serializeTool = new SerializeTool.Builder().build();
-        data = networkThread.read(0, MsgType.NOTIFY_INIT.ordinal());
+        byte[] data = networkThread.read(0, MsgType.NOTIFY_INIT.ordinal());
         payload = serializeTool.fromBytes(data, Payload.class);
         AsyncConfig.set(payload.getAsyncConfig());
         L.info("RECV CMD NOTIFY_INIT CONFIG:" + AsyncConfig.get());
@@ -80,46 +78,20 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         Class<?> distAsyncTableClass = Loader.forName("socialite.async.codegen.DistAsyncTable");
         try {
             SRuntimeWorker runtimeWorker = SRuntimeWorker.getInst();
+
             DistTablePartitionMap partitionMap = runtimeWorker.getPartitionMap();
-            Map<Integer, Integer> myIdxWorkerMap = payload.getMyIdxWorkerIdMap();
-            int[] myIdxWorkerArr = new int[myIdxWorkerMap.size()];
-            myIdxWorkerMap.forEach((myIdx, workerId) -> myIdxWorkerArr[myIdx] = workerId);
-            //static, int type key
-            int indexForTableId;
-            if (AsyncConfig.get().isDynamic()) {
-                Method method = edgeTableInstArr[0].getClass().getMethod("tableid");
-                indexForTableId = (Integer) method.invoke(edgeTableInstArr[0]);
-                //public DistAsyncTable(Class\<?> messageTableClass, DistTableSliceMap sliceMap, int indexForTableId) {
-                Constructor constructor = distAsyncTableClass.getConstructor(messageTableClass.getClass(), DistTablePartitionMap.class, int.class, int[].class);
+            int indexForTableId = runtimeWorker.getTableMap().get(payload.getEdgeTableName()).id();
+            Constructor constructor = distAsyncTableClass.getConstructor(messageTableClass.getClass(), DistTablePartitionMap.class, int.class);
 
-                asyncTable = (BaseDistAsyncTable) constructor.newInstance(messageTableClass, partitionMap, indexForTableId, myIdxWorkerArr);
+            asyncTable = (BaseDistAsyncTable) constructor.newInstance(messageTableClass, partitionMap, indexForTableId);
 
-                for (TableInst edgeInst : edgeTableInstArr) {
-                    //动态算法需要edge做连接，如prog4、9!>
-                    method = edgeInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
-                    for (TableInst tableInst : edgeTableInstArr) {
-                        if (!tableInst.isEmpty()) {
-                            method.invoke(tableInst, asyncTable.getEdgeVisitor());
-                            tableInst.clear();
-                        }
-                    }
+            for (TableInst tableInst : edgeTableInstArr) {
+                Method method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
+                if (!tableInst.isEmpty()) {
+                    method.invoke(tableInst, asyncTable.getEdgeVisitor());
+                    tableInst.clear();
                 }
-            } else {
-                TableInst initTableInst = initTableInstArr[0];
-                if (initTableInst == null) {
-                    L.warn("worker " + myWorkerId + " has no job");
-                    return false;
-                }
-                Method method = initTableInst.getClass().getMethod("tableid");
-                indexForTableId = (Integer) method.invoke(initTableInst);
-                Field baseField = initTableInstArr[0].getClass().getDeclaredField("base");
-                baseField.setAccessible(true);
-                int base = baseField.getInt(Arrays.stream(initTableInstArr).filter(tableInst -> !tableInst.isEmpty()).findFirst().orElse(null));
-                //public DistAsyncTable(Class\<?> messageTableClass, DistTableSliceMap sliceMap, int indexForTableId, int base) {
-                Constructor constructor = distAsyncTableClass.getConstructor(messageTableClass.getClass(), DistTablePartitionMap.class, int.class, int[].class, int.class);
-                asyncTable = (BaseDistAsyncTable) constructor.newInstance(messageTableClass, partitionMap, indexForTableId, myIdxWorkerArr, base);
             }
-
 
             for (TableInst tableInst : initTableInstArr) {
                 Method method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
@@ -129,15 +101,21 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                 }
             }
 
-            for (TableInst tableInst : edgeTableInstArr) {
-                if (!tableInst.isEmpty()) {
-                    tableInst.clear();
+            if (extraTableInstArr != null) {
+                for (TableInst tableInst : extraTableInstArr) {
+                    Method method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
+                    if (!tableInst.isEmpty()) {
+                        method.invoke(tableInst, asyncTable.getExtraVisitor());
+                        tableInst.clear();
+                    }
                 }
             }
-            System.gc();
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException | NoSuchFieldException e) {
-            e.printStackTrace();
+        } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e1) {
+            e1.printStackTrace();
         }
+
+
+        System.gc();
         L.info("WorkerId " + myWorkerId + " Data Loaded size:" + asyncTable.getSize());
         return true;
     }
@@ -147,19 +125,23 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         super.createThreads();
         arrangeTask();
         checkerThread = new CheckThread();
+        sender = new Sender();
+        receiver = new Receiver();
 //        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC ||
 //                asyncConfig.getEngineType() == AsyncConfig.EngineType.SEMI_ASYNC)
 //            barrier = new CyclicBarrier(asyncConfig.getThreadNum(), checkerThread);
     }
 
     private void startThreads() {
-        if (AsyncConfig.get().getPriorityType()== AsyncConfig.PriorityType.GLOBAL)
+        if (AsyncConfig.get().getPriorityType() == AsyncConfig.PriorityType.GLOBAL)
             schedulerThread.start();
         if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
             L.info("network thread started");
             checkerThread.start();
             L.info("checker started");
         }
+        sender.start();
+        receiver.start();
 
         Arrays.stream(computingThreads).filter(Objects::nonNull).forEach(Thread::start);
         L.info(String.format("Worker %d all threads started.", myWorkerId));
@@ -170,6 +152,8 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
                 checkerThread.join();
             }
+            sender.join();
+            receiver.join();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -220,7 +204,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             while (!stopTransmitting) {
                 for (int recvFromWorkerId = 0; recvFromWorkerId < workerNum; recvFromWorkerId++) {
                     if (recvFromWorkerId == myWorkerId) continue;
-                    byte[] data = networkThread.read(recvFromWorkerId, MsgType.MESSAGE_TABLE.ordinal());
+                    byte[] data = networkThread.read(recvFromWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     MessageTableBase messageTable = (MessageTableBase) serializeTool.fromBytesToObject(data, klass);
                     ((BaseDistAsyncTable) asyncTable).applyBuffer(messageTable);
 //                        L.info("msg size: " + messageTable.size());
@@ -245,7 +229,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         @Override
         public void run() {
             super.run();
-            boolean[] feedback = new boolean[2];
+            boolean[] feedback = new boolean[1];
             while (true) {
                 if (asyncConfig.isDynamic())
                     arrangeTask();
@@ -261,18 +245,16 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
 //                    MPI.COMM_WORLD.sendRecv(new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]}, 0, 4, MPI.DOUBLE, AsyncMaster.ID, MsgType.REQUIRE_TERM_CHECK.ordinal(),
 //                            feedback, 0, 1, MPI.BOOLEAN, AsyncMaster.ID, MsgType.TERM_CHECK_FEEDBACK.ordinal());
-                    if (feedback[0]) {
-                        done();
-                    } else {
-//                        createNetworkThreads();//cannot reuse dead thread, we need recreate
-                    }
+//                    if (feedback[0]) {
+//                        done();
+//                    } else {
+////                        createNetworkThreads();//cannot reuse dead thread, we need recreate
+//                    }
                     break;//exit function, run will be called next round
                 } else {
 //                    L.info("switch times: " + asyncTable.swtichTimes.get());
-                    double partialSum = aggregate();
-
                     networkThread.read(0, MsgType.REQUIRE_TERM_CHECK.ordinal());
-
+                    double partialSum = aggregate();
                     double[] data = new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]};
                     networkThread.send(serializeTool.toBytes(data), 0, MsgType.TERM_CHECK_PARTIAL_VALUE.ordinal());
                     byte[] feedBackData = networkThread.read(0, MsgType.TERM_CHECK_FEEDBACK.ordinal());
@@ -281,7 +263,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     if (feedback[0]) {
                         L.info("waiting for flush");
                         stopTransmitting = true;
-                        networkThread.shutdown();
                         L.info("flushed");
                         done();
                         break;

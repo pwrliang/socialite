@@ -369,12 +369,13 @@ function returns [Function result]
 	;
 param returns [Object result]
 	: simpleExpr {
-	    if (tmpVarAssignHasFunc()) {
+	    //mod by Liang
+	    /*if (tmpVarAssignHasFunc()) {
 	        throw new ParseException(getParser(), 
 	                        $simpleExpr.tree.getLine()-1,
 	                        $simpleExpr.tree.getCharPositionInLine()+1, 
 	                        "Cannot use functions with operators in a param list");
-	    }
+	    }*/
 	    $result = $simpleExpr.result;
 	    /*if ($simpleExpr.result instanceof TypeCast) {
 	        TypeCast cast=(TypeCast)$result;
