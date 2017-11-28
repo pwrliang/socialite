@@ -208,7 +208,9 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                     <endif>
                 } else {
                     MessageTable messageTable = (MessageTable)getWritableMessageTable(idx);
-                    messageTable.apply(dst, newDelta);
+                    synchronized(messageTable){
+                        messageTable.apply(dst, newDelta);
+                    }
                 }
             }
         <endif>
@@ -247,6 +249,7 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                 <if(IsCount.(aggrType))>deltaList.get(dstLocalInd).addAndGet(delta.get());<endif>
             <endif>
         });
+        //messageTable.resetDelta();
     }
 
     <if(IsBoolean.(valueType))>

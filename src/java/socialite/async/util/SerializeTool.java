@@ -1,13 +1,16 @@
 package socialite.async.util;
 
 import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.ByteBufferOutputStream;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import mpi.MPI;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +44,7 @@ public class SerializeTool {
     //    // ...
     //    SomeClass someObject = kryo.readObject(input, SomeClass.class);
 
-//    public ByteBuffer toByteBuffer(Object object) {
+    //    public ByteBuffer toByteBuffer(Object object) {
 //        return toByteBuffer(initSize, object);
 //    }
 //
@@ -53,8 +56,20 @@ public class SerializeTool {
 //        output.close();
 //        return byteBuffer;
 //    }
+    public ByteBuffer toByteBuffer(int buffSize, Object object) {
+        ByteBuffer byteBuffer = MPI.newByteBuffer(buffSize);
+        ByteBufferOutputStream byteBufferOutputStream = new ByteBufferOutputStream(byteBuffer);
+        Output output = new Output(byteBufferOutputStream);
+        kryo.writeObject(output, object);
+        output.close();
+        return byteBuffer;
+    }
 
     public static void main(String[] args) {
+        Double obj = new Double(1);
+        SerializeTool serial = new SerializeTool.Builder().build();
+        ByteBuffer byteBuffer = serial.toByteBuffer(7, obj);
+        System.out.println(byteBuffer.position());
 //        SerializeTool serializeTool = new SerializeTool.Builder().setInitSize(128 * 1024 * 1024).registry(Test.class).registry(ArrayList.class).build();
 //        Test test = new Test();
 //        test.set();
@@ -108,6 +123,7 @@ public class SerializeTool {
         output.close();
         return byteArrayOutputStream.toByteArray();
     }
+
 
     public byte[] toBytes(Object object) {
         return toBytes(initSize, object);

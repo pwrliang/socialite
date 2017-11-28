@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 class SendRequest {
     private byte[] data;
+    private ByteBuffer buffer;
     private int dest;
     private int tag;
 
@@ -23,6 +24,13 @@ class SendRequest {
         this.dest = dest;
         this.tag = tag;
     }
+
+    SendRequest(ByteBuffer buffer, int dest, int tag) {
+        this.buffer = buffer;
+        this.dest = dest;
+        this.tag = tag;
+    }
+
 
     public int getTag() {
         return tag;
@@ -34,6 +42,10 @@ class SendRequest {
 
     public byte[] getData() {
         return data;
+    }
+
+    public ByteBuffer getBuffer() {
+        return buffer;
     }
 }
 
@@ -111,11 +123,19 @@ public class NetworkThread extends Thread {
             SendRequest sendRequest;
             while ((sendRequest = sendQueue.poll()) != null) {
                 byte[] data = sendRequest.getData();
-                ByteBuffer buffer = MPI.newByteBuffer(data.length);
-                buffer.put(data);
-                Request request = MPI.COMM_WORLD.iSend(buffer, data.length, MPI.BYTE, sendRequest.getDest(), sendRequest.getTag());
-                synchronized (activeSends) {
-                    activeSends.add(request);
+                if (data != null) {
+                    ByteBuffer buffer = MPI.newByteBuffer(data.length);
+                    buffer.put(data);
+                    Request request = MPI.COMM_WORLD.iSend(buffer, data.length, MPI.BYTE, sendRequest.getDest(), sendRequest.getTag());
+                    synchronized (activeSends) {
+                        activeSends.add(request);
+                    }
+                } else {
+                    ByteBuffer buffer = sendRequest.getBuffer();
+                    Request request = MPI.COMM_WORLD.iSend(buffer, buffer.position(), MPI.BYTE, sendRequest.getDest(), sendRequest.getTag());
+                    synchronized (activeSends) {
+                        activeSends.add(request);
+                    }
                 }
             }
             //delete sent record
@@ -136,6 +156,14 @@ public class NetworkThread extends Thread {
         SendRequest sendRequest = new SendRequest(data, dest, tag);
         sendQueue.add(sendRequest);
     }
+
+    public void send(ByteBuffer buffer, int dest, int tag) {
+        if (shutdown)
+            throw new RuntimeException("The network thread already shutdown");
+        SendRequest sendRequest = new SendRequest(buffer, dest, tag);
+        sendQueue.add(sendRequest);
+    }
+
 
     public byte[] read(int source, int tag) {
         byte[] data;

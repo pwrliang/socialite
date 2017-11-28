@@ -24,6 +24,7 @@ import socialite.yarn.ClusterConf;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -175,8 +176,10 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
                     for (int sendToWorkerId = 0; sendToWorkerId < workerNum; sendToWorkerId++) {
                         if (sendToWorkerId == myWorkerId) continue;
-                        byte[] data = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableBytes(sendToWorkerId, serializeTool);
+                        byte[] data = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer1(sendToWorkerId, serializeTool);
                         networkThread.send(data, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
+//                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer1(sendToWorkerId, serializeTool);
+//                        networkThread.send(buffer, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     }
 
 //                    if (AsyncConfig) break;
@@ -252,7 +255,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 //                    }
                     break;//exit function, run will be called next round
                 } else {
-//                    L.info("switch times: " + asyncTable.swtichTimes.get());
+                    L.info("switch times: " + asyncTable.swtichTimes.get());
                     networkThread.read(0, MsgType.REQUIRE_TERM_CHECK.ordinal());
                     double partialSum = aggregate();
                     double[] data = new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]};
