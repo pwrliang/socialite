@@ -129,17 +129,8 @@ public class NetworkThread extends Thread {
                 }
             }
         }
-
     }
 
-
-    //        byte[] data = sendRequest.getData();
-//        ByteBuffer buffer = MPI.newByteBuffer(data.length);
-//        buffer.put(data);
-//        Request request = MPI.COMM_WORLD.iSend(buffer, data.length, MPI.BYTE, sendRequest.getDest(), sendRequest.getTag());
-//        synchronized (activeSends) {
-//            activeSends.add(request);
-//        }
     public void send(byte[] data, int dest, int tag) {
         if (shutdown)
             throw new RuntimeException("The network thread already shutdown");
