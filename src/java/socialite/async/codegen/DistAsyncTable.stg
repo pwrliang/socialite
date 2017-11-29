@@ -209,7 +209,7 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                 } else {
                     MessageTable messageTable = (MessageTable)getWritableMessageTable(idx);
                     synchronized(messageTable){
-                        messageTable.apply(dst, newDelta);
+                       messageTable.apply(dst, newDelta);
                     }
                 }
             }

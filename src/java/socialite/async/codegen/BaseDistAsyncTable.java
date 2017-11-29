@@ -62,10 +62,6 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         }
     }
 
-    public AtomicIntegerArray getMessageTableSelector() {
-        return messageTableSelector;
-    }
-
     public MessageTableBase[][] getMessageTableList() {
         return messageTableList;
     }
@@ -136,7 +132,7 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         return buffer;
     }
 
-    public ByteBuffer getSendableMessageTableByteBuffer1(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
+    public ByteBuffer getSendableMessageTableByteBufferMVCC(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
         int writingTableInd;
         writingTableInd = messageTableSelector.get(sendToWorkerId);//获取计算线程正在写入的表序号
         MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];

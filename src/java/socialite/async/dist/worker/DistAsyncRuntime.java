@@ -174,9 +174,9 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                 while (!stopTransmitting) {
                     for (int sendToWorkerId = 0; sendToWorkerId < workerNum; sendToWorkerId++) {
                         if (sendToWorkerId == myWorkerId) continue;
-//                        byte[] data = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer1(sendToWorkerId, serializeTool);
-//                        networkThread.send(data, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                         ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer(sendToWorkerId, serializeTool);
+//                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBufferMVCC(sendToWorkerId, serializeTool);
+
                         if (stopTransmitting) break;
                         networkThread.send(buffer, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     }
