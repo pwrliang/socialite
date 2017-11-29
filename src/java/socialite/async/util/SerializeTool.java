@@ -1,18 +1,16 @@
 package socialite.async.util;
 
 import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.ByteBufferInputStream;
 import com.esotericsoftware.kryo.io.ByteBufferOutputStream;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
-import mpi.MPI;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 public class SerializeTool {
     private static final Log L = LogFactory.getLog(SerializeTool.class);
@@ -22,54 +20,13 @@ public class SerializeTool {
     private SerializeTool() {
     }
 
-
-    //    Kryo has three sets of methods for reading and writing objects.
-    //
-    //    If the concrete class of the object is not known and the object could be null:
-    //
-    //            kryo.writeClassAndObject(output, object);
-    //    // ...
-    //    Object object = kryo.readClassAndObject(input);
-    //    if (object instanceof SomeClass) {
-    //        // ...
-    //    }
-    //    If the class is known and the object could be null:
-    //
-    //            kryo.writeObjectOrNull(output, someObject);
-    //    // ...
-    //    SomeClass someObject = kryo.readObjectOrNull(input, SomeClass.class);
-    //    If the class is known and the object cannot be null:
-    //
-    //            kryo.writeObject(output, someObject);
-    //    // ...
-    //    SomeClass someObject = kryo.readObject(input, SomeClass.class);
-
-    //    public ByteBuffer toByteBuffer(Object object) {
-//        return toByteBuffer(initSize, object);
-//    }
-//
-//    public ByteBuffer toByteBuffer(int buffSize, Object object) {
-//        ByteBuffer byteBuffer = ByteBuffer.allocate(buffSize);
-//        ByteBufferOutputStream byteBufferOutputStream = new ByteBufferOutputStream(byteBuffer);
-//        Output output = new Output(byteBufferOutputStream);
-//        kryo.writeObject(output, object);
-//        output.close();
-//        return byteBuffer;
-//    }
-    public ByteBuffer toByteBuffer(int buffSize, Object object) {
-        ByteBuffer byteBuffer = MPI.newByteBuffer(buffSize);
-        ByteBufferOutputStream byteBufferOutputStream = new ByteBufferOutputStream(byteBuffer);
-        Output output = new Output(byteBufferOutputStream);
-        kryo.writeObject(output, object);
-        output.close();
-        return byteBuffer;
-    }
-
     public static void main(String[] args) {
-        Double obj = new Double(1);
+        Double obj = new Double(12);
         SerializeTool serial = new SerializeTool.Builder().build();
-        ByteBuffer byteBuffer = serial.toByteBuffer(7, obj);
-        System.out.println(byteBuffer.position());
+        ByteBuffer byteBuffer = serial.toByteBuffer(8, obj);
+        byteBuffer.flip();
+        obj = serial.fromByteBuffer(byteBuffer, obj.getClass());
+        System.out.println(obj);
 //        SerializeTool serializeTool = new SerializeTool.Builder().setInitSize(128 * 1024 * 1024).registry(Test.class).registry(ArrayList.class).build();
 //        Test test = new Test();
 //        test.set();
@@ -93,28 +50,22 @@ public class SerializeTool {
         //  System.out.println(serializeTool.fromByteBuffer(serializeTool.toByteBuffer(test), Test.class).i);
     }
 
-//    public ByteBuffer MPI_toByteBuffer(int buffSize, Object object) throws MPIException {
-//        ByteBuffer byteBuffer = MPI.newByteBuffer(buffSize);
-//        ByteBufferOutputStream byteBufferOutputStream = new ByteBufferOutputStream(byteBuffer);
-//        Output output = new Output(byteBufferOutputStream);
-//        kryo.writeObject(output, object);
-//        output.close();
-//        return byteBuffer;
-//    }
-//
-//    public <T> T MPI_fromByteBuffer(ByteBuffer byteBuffer, Class<T> klass) {
-//        Input input = new Input(new ByteBufferInputStream(byteBuffer));
-//        T object = kryo.readObject(input, klass);
-//        input.close();
-//        return object;
-//    }
-//
-//    public <T> T fromByteBuffer(ByteBuffer byteBuffer, Class<T> klass) {
-//        Input input = new Input(byteBuffer.array());
-//        T object = kryo.readObject(input, klass);
-//        input.close();
-//        return object;
-//    }
+    public ByteBuffer toByteBuffer(int buffSize, Object object) {
+        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(buffSize);
+        ByteBufferOutputStream byteBufferOutputStream = new ByteBufferOutputStream(byteBuffer);
+        Output output = new Output(byteBufferOutputStream);
+        kryo.writeObject(output, object);
+        output.close();
+        return byteBuffer;
+    }
+
+    public <T> T fromByteBuffer(ByteBuffer byteBuffer, Class<T> klass) {
+        ByteBufferInputStream byteBufferInputStream = new ByteBufferInputStream(byteBuffer);
+        Input input = new Input(byteBufferInputStream);
+        T object = kryo.readObject(input, klass);
+        input.close();
+        return object;
+    }
 
     public byte[] toBytes(int buffSize, Object object) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(buffSize);
@@ -143,31 +94,6 @@ public class SerializeTool {
         input.close();
         return object;
     }
-
-    public Object fromBytes(byte[] data) {
-        Input input = new Input(new ByteArrayInputStream(data));
-        Object object = kryo.readClassAndObject(input);
-        input.close();
-        return object;
-    }
-    /*
-    public byte[] toBytes(Object object) {
-        ByteBufferOutputStream byteBufferOutputStream = new ByteBufferOutputStream(initSize);
-        Output output = new Output(byteBufferOutputStream);
-        kryo.writeObject(output, object);
-        output.close();
-        return byteBufferOutputStream.getByteBuffer().array();
-    }
-
-
-
-    public <T> T fromBytes(byte[] data, Class<T> klass) {
-        Input input = new Input(new ByteBufferInputStream(ByteBuffer.wrap(data)));
-        T object = kryo.readObject(input, klass);
-        input.close();
-        return object;
-    }
-    */
 
     public static class Builder {
         Kryo kryo;
@@ -209,17 +135,6 @@ public class SerializeTool {
             serializeTool.kryo = kryo;
             serializeTool.initSize = initSize;
             return serializeTool;
-        }
-    }
-
-    private static class Test {
-        List<String> data;
-
-        void set() {
-            data = new ArrayList<>();
-            for (int i = 0; i < 3 * 1000 * 1000; i++) {
-                data.add(i + "abcdefghijklmnopqrstuvwxyz");
-            }
         }
     }
 }

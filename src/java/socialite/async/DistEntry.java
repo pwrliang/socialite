@@ -55,7 +55,7 @@ public class DistEntry {
             NetworkThread.get().read(0, MsgType.EXIT.ordinal());
         }
         NetworkThread.get().shutdown();
-        NetworkThread.get().join();
+//        NetworkThread.get().join();
         MPI.Finalize();
         L.info("process " + machineId + " exit.");
         System.exit(0);

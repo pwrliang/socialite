@@ -7,7 +7,6 @@ import mpi.Status;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -15,16 +14,10 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 class SendRequest {
-    private byte[] data;
     private ByteBuffer buffer;
     private int dest;
     private int tag;
 
-    SendRequest(byte[] data, int dest, int tag) {
-        this.data = data;
-        this.dest = dest;
-        this.tag = tag;
-    }
 
     SendRequest(ByteBuffer buffer, int dest, int tag) {
         this.buffer = buffer;
@@ -41,22 +34,18 @@ class SendRequest {
         return dest;
     }
 
-    public byte[] getData() {
-        return data;
-    }
-
     public ByteBuffer getBuffer() {
         return buffer;
     }
 }
 
 class RecvRequest {
-    private byte[] data;
+    private ByteBuffer buffer;
     private int source;
     private int tag;
 
-    RecvRequest(byte[] data, int source, int tag) {
-        this.data = data;
+    RecvRequest(ByteBuffer buffer, int source, int tag) {
+        this.buffer = buffer;
         this.source = source;
         this.tag = tag;
     }
@@ -69,16 +58,14 @@ class RecvRequest {
         return source;
     }
 
-    public byte[] getData() {
-        return data;
+    public ByteBuffer getBuffer() {
+        return buffer;
     }
 }
 
 public class NetworkThread extends Thread {
     private static final Log L = LogFactory.getLog(NetworkThread.class);
     private final ConcurrentLinkedQueue<SendRequest> sendQueue = new ConcurrentLinkedQueue<>();
-
-
     private final List<Request> activeSends = new LinkedList<>();
     private final List<RecvRequest> recvList = new LinkedList<>();
     private volatile boolean shutdown;
@@ -115,9 +102,8 @@ public class NetworkThread extends Thread {
 
                 ByteBuffer buffer = MPI.newByteBuffer(sizeInBytes);
                 MPI.COMM_WORLD.recv(buffer, sizeInBytes, MPI.BYTE, source, tag);
-                byte[] data = new byte[sizeInBytes];
-                buffer.get(data);
-                RecvRequest recvRequest = new RecvRequest(data, source, tag);
+                RecvRequest recvRequest = new RecvRequest(buffer, source, tag);
+
                 synchronized (recvList) {
                     recvList.add(recvRequest);
                 }
@@ -125,20 +111,10 @@ public class NetworkThread extends Thread {
 
             SendRequest sendRequest;
             while ((sendRequest = sendQueue.poll()) != null) {
-                byte[] data = sendRequest.getData();
-                if (data != null) {
-                    ByteBuffer buffer = MPI.newByteBuffer(data.length);
-                    buffer.put(data);
-                    Request request = MPI.COMM_WORLD.iSend(buffer, data.length, MPI.BYTE, sendRequest.getDest(), sendRequest.getTag());
-                    synchronized (activeSends) {
-                        activeSends.add(request);
-                    }
-                } else {
-                    ByteBuffer buffer = sendRequest.getBuffer();
-                    Request request = MPI.COMM_WORLD.iSend(buffer, buffer.position(), MPI.BYTE, sendRequest.getDest(), sendRequest.getTag());
-                    synchronized (activeSends) {
-                        activeSends.add(request);
-                    }
+                ByteBuffer buffer = sendRequest.getBuffer();
+                Request request = MPI.COMM_WORLD.iSend(buffer, buffer.position(), MPI.BYTE, sendRequest.getDest(), sendRequest.getTag());
+                synchronized (activeSends) {
+                    activeSends.add(request);
                 }
             }
             //delete sent record
@@ -153,12 +129,23 @@ public class NetworkThread extends Thread {
                 }
             }
         }
+
     }
 
+
+    //        byte[] data = sendRequest.getData();
+//        ByteBuffer buffer = MPI.newByteBuffer(data.length);
+//        buffer.put(data);
+//        Request request = MPI.COMM_WORLD.iSend(buffer, data.length, MPI.BYTE, sendRequest.getDest(), sendRequest.getTag());
+//        synchronized (activeSends) {
+//            activeSends.add(request);
+//        }
     public void send(byte[] data, int dest, int tag) {
         if (shutdown)
             throw new RuntimeException("The network thread already shutdown");
-        SendRequest sendRequest = new SendRequest(data, dest, tag);
+        ByteBuffer buffer = MPI.newByteBuffer(data.length);
+        buffer.put(data);
+        SendRequest sendRequest = new SendRequest(buffer, dest, tag);
         sendQueue.add(sendRequest);
     }
 
@@ -173,7 +160,7 @@ public class NetworkThread extends Thread {
     public byte[] read(int source, int tag) {
         byte[] data;
         while ((data = tryRead(source, tag)) == null) {
-            if(shutdown)
+            if (shutdown)
                 throw new RuntimeException("The network thread already shutdown");
             try {
                 Thread.sleep(1);
@@ -192,12 +179,44 @@ public class NetworkThread extends Thread {
                 RecvRequest recvRequest = iterator.next();
                 if (recvRequest.getSource() == source && recvRequest.getTag() == tag) {
                     iterator.remove();
-                    data = recvRequest.getData();
+                    ByteBuffer buffer = recvRequest.getBuffer();
+                    data = new byte[buffer.remaining()];
+                    buffer.get(data);
                     break;//just get one
                 }
             }
         }
         return data;
+    }
+
+    public ByteBuffer readByteBuffer(int source, int tag) {
+        ByteBuffer buffer;
+        while ((buffer = tryReadByteBuffer(source, tag)) == null) {
+            if (shutdown)
+                throw new RuntimeException("The network thread already shutdown");
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        return buffer;
+    }
+
+    public ByteBuffer tryReadByteBuffer(int source, int tag) {
+        ByteBuffer buffer = null;
+        synchronized (recvList) {
+            Iterator<RecvRequest> iterator = recvList.iterator();
+            while (iterator.hasNext()) {
+                RecvRequest recvRequest = iterator.next();
+                if (recvRequest.getSource() == source && recvRequest.getTag() == tag) {
+                    iterator.remove();
+                    buffer = recvRequest.getBuffer();
+                    break;//just get one
+                }
+            }
+        }
+        return buffer;
     }
 
     public void shutdown() {

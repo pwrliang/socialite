@@ -151,9 +151,12 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
             if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
                 checkerThread.join();
+                L.info("CheckThread exited");
+                sender.join();
+                L.info(String.format("%d SenderThread exited", myWorkerId));
+                receiver.join();
+                L.info(String.format("%d RecvThread exited", myWorkerId));
             }
-            sender.join();
-            receiver.join();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -177,7 +180,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                         ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer(sendToWorkerId, serializeTool);
 //                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBufferMVCC(sendToWorkerId, serializeTool);
 
-                        if (stopTransmitting) break;
+                        if (stopTransmitting) return;
                         networkThread.send(buffer, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     }
                     if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) break;
@@ -204,9 +207,9 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             while (!stopTransmitting) {
                 for (int recvFromWorkerId = 0; recvFromWorkerId < workerNum; recvFromWorkerId++) {
                     if (recvFromWorkerId == myWorkerId) continue;
-                    byte[] data;
-                    while ((data = networkThread.tryRead(recvFromWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal())) == null) {
-                        if(stopTransmitting)
+                    ByteBuffer buffer;
+                    while ((buffer = networkThread.tryReadByteBuffer(recvFromWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal())) == null) {
+                        if (stopTransmitting)
                             return;
                         try {
                             Thread.sleep(1);
@@ -214,7 +217,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                             e.printStackTrace();
                         }
                     }
-                    MessageTableBase messageTable = (MessageTableBase) serializeTool.fromBytesToObject(data, klass);
+                    MessageTableBase messageTable = (MessageTableBase) serializeTool.fromByteBuffer(buffer, klass);
                     ((BaseDistAsyncTable) asyncTable).applyBuffer(messageTable);
                 }
                 if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) break;
@@ -284,6 +287,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         }
 
         private void flush() {
+            done();
             L.info("waiting for flush");
             try {
                 Thread.sleep(asyncConfig.getMessageTableWaitingInterval());
@@ -292,7 +296,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             }
             stopTransmitting = true;
             L.info("flushed");
-            done();
         }
 
         private double aggregate() {
