@@ -154,8 +154,8 @@ public class DistAsyncEngine implements Runnable {
                         }
 //                        //when first received feedback, we start stopwatch
                         termOrNot[0] = isTerm();
-//                        if (asyncConfig.isNetworkInfo())
-//                            L.info(String.format("RX: %f MB TX: %f MB", totalRx / 1024 / 1024, totalTx / 1024 / 1024));
+                        if (asyncConfig.isNetworkInfo())
+                            L.info(String.format("RX: %f MB TX: %f MB", totalRx / 1024 / 1024, totalTx / 1024 / 1024));
                         byte[] data = serializeTool.toBytes(termOrNot);
                         IntStream.rangeClosed(1, workerNum).forEach(dest ->
                                 networkThread.send(data, dest, MsgType.TERM_CHECK_FEEDBACK.ordinal()));

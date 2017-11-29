@@ -143,7 +143,6 @@ public abstract class BaseAsyncRuntime implements Runnable {
                             lastCheckTime = System.currentTimeMillis();
                         }
                     } else {
-                        L.info("call barrier");
                         barrier.await();
                     }
                 }

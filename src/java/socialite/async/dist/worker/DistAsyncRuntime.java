@@ -153,7 +153,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                 checkerThread.join();
             }
             sender.join();
-//            receiver.join();
+            receiver.join();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -172,7 +172,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         public void run() {
             try {
                 while (!stopTransmitting) {
-
                     for (int sendToWorkerId = 0; sendToWorkerId < workerNum; sendToWorkerId++) {
                         if (sendToWorkerId == myWorkerId) continue;
 //                        byte[] data = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer1(sendToWorkerId, serializeTool);
@@ -205,7 +204,16 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             while (!stopTransmitting) {
                 for (int recvFromWorkerId = 0; recvFromWorkerId < workerNum; recvFromWorkerId++) {
                     if (recvFromWorkerId == myWorkerId) continue;
-                    byte[] data = networkThread.read(recvFromWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
+                    byte[] data;
+                    while ((data = networkThread.tryRead(recvFromWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal())) == null) {
+                        if(stopTransmitting)
+                            return;
+                        try {
+                            Thread.sleep(1);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
                     MessageTableBase messageTable = (MessageTableBase) serializeTool.fromBytesToObject(data, klass);
                     ((BaseDistAsyncTable) asyncTable).applyBuffer(messageTable);
                 }
@@ -236,7 +244,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     rxTx = NetworkUtil.getNetwork();
                 if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) {//sync mode
                     sendAndWait();
-                    L.info("call check");
                     double partialSum = aggregate();
                     double[] data = new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]};
                     networkThread.send(serializeTool.toBytes(data), 0, MsgType.REQUIRE_TERM_CHECK.ordinal());

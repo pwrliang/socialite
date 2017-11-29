@@ -176,7 +176,7 @@ public class NetworkThread extends Thread {
             if(shutdown)
                 throw new RuntimeException("The network thread already shutdown");
             try {
-                Thread.sleep(10);
+                Thread.sleep(1);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
