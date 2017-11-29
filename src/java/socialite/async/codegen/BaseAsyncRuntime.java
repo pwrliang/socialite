@@ -37,6 +37,8 @@ public abstract class BaseAsyncRuntime implements Runnable {
     protected abstract boolean loadData(TableInst[] initTableInstArr, TableInst[] edgeTableInstArr, TableInst[] extraTableInstArr);
 
     protected void createThreads() {
+        if(checkerThread==null)
+            throw new AssertionError("create CheckThread before call createThreads");
         asyncConfig = AsyncConfig.get();
         updateCounter = new AtomicInteger();
         globalThreshold = -Double.MAX_VALUE;
@@ -141,6 +143,7 @@ public abstract class BaseAsyncRuntime implements Runnable {
                             lastCheckTime = System.currentTimeMillis();
                         }
                     } else {
+                        L.info("call barrier");
                         barrier.await();
                     }
                 }

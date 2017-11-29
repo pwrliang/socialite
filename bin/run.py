@@ -13,6 +13,8 @@ if not os.path.exists(PROG_PATH):
 cmd = """%s/bin/mpirun
  --prefix %s
  --machinefile %s
+ --mca btl_tcp_if_include eth0
+ --mca btl ^openib
  %s/bin/java
  -Xmx%dm
  -Dsocialite.master=%s

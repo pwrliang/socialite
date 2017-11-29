@@ -118,6 +118,7 @@ public class DistAsyncEngine implements Runnable {
     }
 
     private class FeedBackThread extends Thread {
+        SerializeTool serializeTool;
         private AsyncConfig asyncConfig;
         private StopWatch stopWatch;
         private Double lastSum;
@@ -127,49 +128,46 @@ public class DistAsyncEngine implements Runnable {
 
         private FeedBackThread() {
             asyncConfig = AsyncConfig.get();
+            serializeTool = new SerializeTool.Builder().build();
         }
 
         @Override
         public void run() {
-
             double[] partialValue = new double[4];
             boolean[] termOrNot = new boolean[1];
-
+            if (stopWatch == null) {
+                stopWatch = new StopWatch();
+                stopWatch.start();
+            }
             try {
                 while (true) {
                     accumulatedSum = 0;
                     double totalRx = 0, totalTx = 0;
                     if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) {
-//                        for (int source = 1; source <= workerNum; source++) {
-//                            MPI.COMM_WORLD.Recv(partialValue, 0, 4, MPI.DOUBLE, source, MsgType.REQUIRE_TERM_CHECK.ordinal());
-//                            accumulatedSum += partialValue[0];
-//                            totalUpdateTimes += partialValue[1];
-//                            totalRx += partialValue[2];
-//                            totalTx += partialValue[3];
-//                        }
+                        for (int source = 1; source <= workerNum; source++) {
+                            byte[] data = networkThread.read(source, MsgType.REQUIRE_TERM_CHECK.ordinal());
+                            partialValue = serializeTool.fromBytes(data, partialValue.getClass());
+                            accumulatedSum += partialValue[0];
+                            totalUpdateTimes += partialValue[1];
+                            totalRx += partialValue[2];
+                            totalTx += partialValue[3];
+                        }
 //                        //when first received feedback, we start stopwatch
-//                        if (stopWatch == null) {
-//                            stopWatch = new StopWatch();
-//                            stopWatch.start();
-//                        }
-//                        termOrNot[0] = isTerm();
+                        termOrNot[0] = isTerm();
 //                        if (asyncConfig.isNetworkInfo())
 //                            L.info(String.format("RX: %f MB TX: %f MB", totalRx / 1024 / 1024, totalTx / 1024 / 1024));
-//                        IntStream.rangeClosed(1, workerNum).forEach(dest ->
-//                                MPI.COMM_WORLD.Send(termOrNot, 0, 1, MPI.BOOLEAN, dest, MsgType.TERM_CHECK_FEEDBACK.ordinal()));
-//                        if (termOrNot[0]) {
-//                            stopWatch.stop();
-//                            L.info("SYNC/BARRIER MODE - TERM_CHECK_DETERMINED_TO_STOP ELAPSED " + stopWatch.getTime());
-//                            break;
-//                        }
-                    } else {
-                        if (stopWatch == null) {
-                            stopWatch = new StopWatch();
-                            stopWatch.start();
+                        byte[] data = serializeTool.toBytes(termOrNot);
+                        IntStream.rangeClosed(1, workerNum).forEach(dest ->
+                                networkThread.send(data, dest, MsgType.TERM_CHECK_FEEDBACK.ordinal()));
+                        if (termOrNot[0]) {
+                            stopWatch.stop();
+                            L.info("SYNC/BARRIER MODE - TERM_CHECK_DETERMINED_TO_STOP ELAPSED " + stopWatch.getTime());
+                            break;
                         }
+                    } else {
                         //sleep first to prevent stop before compute
                         Thread.sleep(AsyncConfig.get().getCheckInterval());
-                        SerializeTool serializeTool = new SerializeTool.Builder().build();
+
                         //require all workers to partial aggregate delta/value
                         IntStream.rangeClosed(1, workerNum).forEach(dest -> networkThread.send(new byte[1], dest, MsgType.REQUIRE_TERM_CHECK.ordinal()));
                         //receive partial value/delta and network traffic from all workers

@@ -7,6 +7,7 @@ import mpi.Status;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -76,6 +77,8 @@ class RecvRequest {
 public class NetworkThread extends Thread {
     private static final Log L = LogFactory.getLog(NetworkThread.class);
     private final ConcurrentLinkedQueue<SendRequest> sendQueue = new ConcurrentLinkedQueue<>();
+
+
     private final List<Request> activeSends = new LinkedList<>();
     private final List<RecvRequest> recvList = new LinkedList<>();
     private volatile boolean shutdown;
@@ -143,8 +146,10 @@ public class NetworkThread extends Thread {
                 Iterator<Request> iterator = activeSends.iterator();
                 while (iterator.hasNext()) {
                     Request request = iterator.next();
-                    if (request.test())
+                    if (request.test()) {
+                        request.free();
                         iterator.remove();
+                    }
                 }
             }
         }
@@ -168,6 +173,8 @@ public class NetworkThread extends Thread {
     public byte[] read(int source, int tag) {
         byte[] data;
         while ((data = tryRead(source, tag)) == null) {
+            if(shutdown)
+                throw new RuntimeException("The network thread already shutdown");
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {

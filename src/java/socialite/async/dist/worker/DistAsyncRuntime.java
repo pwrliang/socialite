@@ -123,26 +123,25 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
     @Override
     protected void createThreads() {
+        checkerThread = new CheckThread();
         super.createThreads();
         arrangeTask();
-        checkerThread = new CheckThread();
-        sender = new Sender();
-        receiver = new Receiver();
-//        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC ||
-//                asyncConfig.getEngineType() == AsyncConfig.EngineType.SEMI_ASYNC)
-//            barrier = new CyclicBarrier(asyncConfig.getThreadNum(), checkerThread);
+        if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
+            sender = new Sender();
+            receiver = new Receiver();
+        }
     }
 
     private void startThreads() {
         if (AsyncConfig.get().getPriorityType() == AsyncConfig.PriorityType.GLOBAL)
             schedulerThread.start();
         if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
+            sender.start();
+            receiver.start();
             L.info("network thread started");
             checkerThread.start();
             L.info("checker started");
         }
-        sender.start();
-        receiver.start();
 
         Arrays.stream(computingThreads).filter(Objects::nonNull).forEach(Thread::start);
         L.info(String.format("Worker %d all threads started.", myWorkerId));
@@ -154,7 +153,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                 checkerThread.join();
             }
             sender.join();
-            receiver.join();
+//            receiver.join();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -176,15 +175,14 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
                     for (int sendToWorkerId = 0; sendToWorkerId < workerNum; sendToWorkerId++) {
                         if (sendToWorkerId == myWorkerId) continue;
-                        byte[] data = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer1(sendToWorkerId, serializeTool);
-                        networkThread.send(data, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
-//                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer1(sendToWorkerId, serializeTool);
-//                        networkThread.send(buffer, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
+//                        byte[] data = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer1(sendToWorkerId, serializeTool);
+//                        networkThread.send(data, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
+                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer(sendToWorkerId, serializeTool);
+                        if (stopTransmitting) break;
+                        networkThread.send(buffer, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     }
-
-//                    if (AsyncConfig) break;
+                    if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) break;
                 }
-//                L.info("end send");
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -210,12 +208,9 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     byte[] data = networkThread.read(recvFromWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     MessageTableBase messageTable = (MessageTableBase) serializeTool.fromBytesToObject(data, klass);
                     ((BaseDistAsyncTable) asyncTable).applyBuffer(messageTable);
-//                        L.info("msg size: " + messageTable.size());
                 }
-
-//                if (AsyncConfig.get().isSync() || AsyncConfig.get().isBarrier()) break;
+                if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) break;
             }
-//                L.info("end recv");
         }
     }
 
@@ -240,19 +235,16 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                 if (asyncConfig.isNetworkInfo())
                     rxTx = NetworkUtil.getNetwork();
                 if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) {//sync mode
-//                    Arrays.stream(sendThreads).forEach(SendThreadSingle::start);
-//                    Arrays.stream(receiveThreads).forEach(ReceiveThreadSingle::start);
-//                    waitNetworkThread();
-
+                    sendAndWait();
+                    L.info("call check");
                     double partialSum = aggregate();
-
-//                    MPI.COMM_WORLD.sendRecv(new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]}, 0, 4, MPI.DOUBLE, AsyncMaster.ID, MsgType.REQUIRE_TERM_CHECK.ordinal(),
-//                            feedback, 0, 1, MPI.BOOLEAN, AsyncMaster.ID, MsgType.TERM_CHECK_FEEDBACK.ordinal());
-//                    if (feedback[0]) {
-//                        done();
-//                    } else {
-////                        createNetworkThreads();//cannot reuse dead thread, we need recreate
-//                    }
+                    double[] data = new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]};
+                    networkThread.send(serializeTool.toBytes(data), 0, MsgType.REQUIRE_TERM_CHECK.ordinal());
+                    byte[] feedbackData = networkThread.read(0, MsgType.TERM_CHECK_FEEDBACK.ordinal());
+                    feedback = serializeTool.fromBytes(feedbackData, feedback.getClass());
+                    if (feedback[0]) {
+                        flush();
+                    }
                     break;//exit function, run will be called next round
                 } else {
                     L.info("switch times: " + asyncTable.swtichTimes.get());
@@ -260,20 +252,41 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     double partialSum = aggregate();
                     double[] data = new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]};
                     networkThread.send(serializeTool.toBytes(data), 0, MsgType.TERM_CHECK_PARTIAL_VALUE.ordinal());
-                    byte[] feedBackData = networkThread.read(0, MsgType.TERM_CHECK_FEEDBACK.ordinal());
-                    feedback = serializeTool.fromBytes(feedBackData, feedback.getClass());
+                    byte[] feedbackData = networkThread.read(0, MsgType.TERM_CHECK_FEEDBACK.ordinal());
+                    feedback = serializeTool.fromBytes(feedbackData, feedback.getClass());
 
                     if (feedback[0]) {
-                        L.info("waiting for flush");
-                        stopTransmitting = true;
-                        L.info("flushed");
-                        done();
+                        flush();
                         break;
                     }
                 }
             }
         }
 
+        private void sendAndWait() {
+            sender = new Sender();
+            receiver = new Receiver();
+            sender.start();
+            receiver.start();
+            try {
+                sender.join();
+                receiver.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private void flush() {
+            L.info("waiting for flush");
+            try {
+                Thread.sleep(asyncConfig.getMessageTableWaitingInterval());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            stopTransmitting = true;
+            L.info("flushed");
+            done();
+        }
 
         private double aggregate() {
             double partialSum = 0;

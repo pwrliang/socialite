@@ -38,17 +38,17 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
 
         messageTableSelector = new AtomicIntegerArray(workerNum);
         messageTableList = new MessageTableBase[workerNum][2];
-//        try {
-//            Constructor constructor = messageTableClass.getConstructor();
-//
-//            for (int wid = 0; wid < workerNum; wid++) {
-//                if (wid == myWorkerId) continue;//for worker i, it have 0,1,...,i-1,null,i+1,...n-1 buffer table
-//                messageTableList[wid][0] = (MessageTableBase) constructor.newInstance();
-//                messageTableList[wid][1] = (MessageTableBase) constructor.newInstance();
-//            }
-//        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-//            e.printStackTrace();
-//        }
+        try {
+            Constructor constructor = messageTableClass.getConstructor();
+
+            for (int wid = 0; wid < workerNum; wid++) {
+                if (wid == myWorkerId) continue;//for worker i, it have 0,1,...,i-1,null,i+1,...n-1 buffer table
+                messageTableList[wid][0] = (MessageTableBase) constructor.newInstance();
+                messageTableList[wid][1] = (MessageTableBase) constructor.newInstance();
+            }
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+            e.printStackTrace();
+        }
         messageTableList1 = new MessageTableBase[workerNum];
         try {
             Constructor constructor = messageTableClass.getConstructor();
@@ -108,7 +108,8 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
     public ByteBuffer getSendableMessageTableByteBuffer(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
         int writingTableInd;
         writingTableInd = messageTableSelector.get(sendToWorkerId);//获取计算线程正在写入的表序号
-        MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
+//        MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
+        MessageTableBase sendableMessageTable = messageTableList1[sendToWorkerId];
         long startTime = System.currentTimeMillis();
         //in sync mode, all computing thread write to message table when barrier is triggered, so we don't have to wait
         while (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC &&
@@ -122,14 +123,16 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         messageTableSelector.set(sendToWorkerId, writingTableInd == 0 ? 1 : 0);
         // sleep to ensure switched, this is important
         // even though selector is atomic type, but computing thread cannot see the switched result immediately, i don't know why :(
-        Thread.sleep(10);
         stopWatch.reset();
         stopWatch.start();
-        System.out.println(sendableMessageTable.size());
-        ByteBuffer buffer = serializeTool.toByteBuffer(2048+sendableMessageTable.size() * (8 + 8), sendableMessageTable);
+//        System.out.println(sendableMessageTable.size());
+        ByteBuffer buffer;
+        synchronized (sendableMessageTable) {
+            buffer = serializeTool.toByteBuffer(2048 + sendableMessageTable.size() * (8 + 8), sendableMessageTable);
+            sendableMessageTable.resetDelta();
+        }
         stopWatch.stop();
-        System.out.println("serial time " + stopWatch.getTime());
-        sendableMessageTable.resetDelta();
+//        System.out.println("serial time " + stopWatch.getTime());
         return buffer;
     }
 
@@ -153,10 +156,12 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         stopWatch.start();
         //System.out.println(sendableMessageTable.size());
 //        ByteBuffer buffer = serializeTool.toByteBuffer(2048+sendableMessageTable.size() * (100), sendableMessageTable);
-        byte[] data = serializeTool.toBytes(sendableMessageTable.size() * (1000), sendableMessageTable);
-        stopWatch.stop();
-        //System.out.println("serial time " + stopWatch.getTime());
+        byte[] data;
         synchronized (sendableMessageTable) {
+            data = serializeTool.toBytes(sendableMessageTable.size() * (1000), sendableMessageTable);
+            stopWatch.stop();
+            //System.out.println("serial time " + stopWatch.getTime());
+
             sendableMessageTable.resetDelta();
         }
         return data;
