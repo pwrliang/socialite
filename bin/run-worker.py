@@ -1,10 +1,11 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 # -*- coding:utf-8 -*-
 from common import *
 import sys
 
 cmd = """%s/bin/java
  -Xmx%dm
+ -ea
  -Dsocialite.master=%s
  -Dsocialite.worker.num=%d
  -Dlog4j.configuration=file:%s
