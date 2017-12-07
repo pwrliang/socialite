@@ -65,7 +65,6 @@ public class ForMaster {
                 "Path(n, $min(d), prev) :- n=0, d=0, prev=-1 ;\n" +
                 "                       :- Path(s, d1, prev1), Edge(s, n, weight), d=d1+weight, prev=s.";
         clientEngine.run(prog);
-
         clientEngine.run("?- Path(s, d, x).", new QueryVisitorForSave(), 0);
         clientEngine.test();
 //        clientEngine.run("edge1(int src:0..875712, (int dst)).\n" +

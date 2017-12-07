@@ -72,34 +72,6 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
     }
 
     StopWatch stopWatch = new StopWatch();
-    long serialTime = 0;
-
-    public byte[] getSendableMessageTableBytes(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
-        int writingTableInd;
-        writingTableInd = messageTableSelector.get(sendToWorkerId);//获取计算线程正在写入的表序号
-        MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
-        long startTime = System.currentTimeMillis();
-        //in sync mode, all computing thread write to message table when barrier is triggered, so we don't have to wait
-        while (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC &&
-                sendableMessageTable.size() < messageTableUpdateThreshold) {
-//            Thread.sleep(1);
-            if ((System.currentTimeMillis() - startTime) >= AsyncConfig.get().getMessageTableWaitingInterval())
-                break;
-        }
-        swtichTimes.addAndGet(1);
-        messageTableSelector.set(sendToWorkerId, writingTableInd == 0 ? 1 : 0);
-        // sleep to ensure switched, this is important
-        // even though selector is atomic type, but computing thread cannot see the switched result immediately, i don't know why :(
-        Thread.sleep(10);
-        stopWatch.reset();
-        stopWatch.start();
-        byte[] data = serializeTool.toBytes(sendableMessageTable.size() * (1000), sendableMessageTable);
-        stopWatch.stop();
-        System.out.println("average:" + (data.length / sendableMessageTable.size()));
-        System.out.println("serial time " + stopWatch.getTime());
-        sendableMessageTable.resetDelta();
-        return data;
-    }
 
     public ByteBuffer getSendableMessageTableByteBuffer(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
         int writingTableInd;
@@ -132,6 +104,14 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         return buffer;
     }
 
+    /**
+     * this method is inefficient, although MVCC will avoid lock, but will cause "invalid information" flushing the network.
+     * @param sendToWorkerId
+     * @param serializeTool
+     * @return
+     * @throws InterruptedException
+     */
+    @Deprecated
     public ByteBuffer getSendableMessageTableByteBufferMVCC(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
         int writingTableInd;
         writingTableInd = messageTableSelector.get(sendToWorkerId);//获取计算线程正在写入的表序号

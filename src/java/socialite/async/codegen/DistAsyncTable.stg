@@ -208,7 +208,7 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                     <endif>
                 } else {
                     MessageTable messageTable = (MessageTable)getWritableMessageTable(idx);
-                    synchronized(messageTable){
+                    synchronized(messageTable){//comment this line to enable MVCC
                        messageTable.apply(dst, newDelta);
                     }
                 }
