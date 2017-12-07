@@ -276,7 +276,7 @@ public class Analysis {
             for (Literal literal : r.getBody()) {
                 if (literal instanceof Expr) {
                     Expr expr = (Expr) literal;
-                    if(expr.root instanceof AssignOp) {
+                    if (expr.root instanceof AssignOp) {
                         AssignOp assignOp = (AssignOp) expr.root;
                         assert assignOp.arg2 != null;
                         if (assignOp.arg2 instanceof Function) {
@@ -1019,13 +1019,14 @@ public class Analysis {
         return list;
     }
 
+    //TODO bug is here
     void createDeltaRules() {
         assert (deltaRules == null);
         deltaRules = new ArrayList<>();
         assert ruleMap != null;
 
-        List<DeltaRule> toAdd = new ArrayList<DeltaRule>();
-        Set<String> deltaRuleSigs = new LinkedHashSet<String>();
+        List<DeltaRule> toAdd = new ArrayList<>();
+        Set<String> deltaRuleSigs = new LinkedHashSet<>();
         for (RuleComp rc : ruleComps) {
             if (!rc.scc()) {
                 continue;
@@ -1061,7 +1062,7 @@ public class Analysis {
             dr.updateRuleDeps();
         }
 
-        List<DeltaRule> startingDeltaRules = createStartingDeltaRules();
+        List<DeltaRule> startingDeltaRules = createStartingDeltaRules();//TODO bug is here
         rules.addAll(deltaRules);
         rules.addAll(startingDeltaRules);
     }
@@ -1070,6 +1071,7 @@ public class Analysis {
         List<DeltaRule> startingDeltaRules = new ArrayList<>();
         for (RuleComp rc : ruleComps) {
             if (!rc.scc()) continue;
+            if (rc.hasLeftRec()) continue;//TODO added by Liang
 
             List<DeltaRule> addedRules = new ArrayList<DeltaRule>();
 

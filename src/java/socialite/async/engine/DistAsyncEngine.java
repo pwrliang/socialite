@@ -45,7 +45,7 @@ public class DistAsyncEngine implements Runnable {
         clientEngine = new ClientEngine();
         workerNum = ClusterConf.get().getNumWorkers();
         networkThread = NetworkThread.get();
-
+        L.info("PROG:" + program);
         tmpAn.run();
 
 

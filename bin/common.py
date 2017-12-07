@@ -50,9 +50,12 @@ with open(MACHINE_FILE, 'r') as fi:
             else:
                 WORKER_HOSTNAME_LIST.append(host_name)
                 WORKER_NUM += slots
+        else:
+            raise EnvironmentError('Error Line:%s' % line)
 
 if HOST_NAME != MASTER_HOSTNAME:
-    raise EnvironmentError("Run this script in master node or correct the [conf/machines] file")
+    raise EnvironmentError(
+        '%s != %s\n"Run this script in master node or correct the [conf/machines] file"' % (HOST_NAME, MASTER_HOSTNAME))
 
 
 def add_class_path(root):

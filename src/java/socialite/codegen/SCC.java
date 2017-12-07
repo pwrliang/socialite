@@ -10,14 +10,20 @@ import java.util.List;
  */
 public class SCC extends RuleComp {
 
+    public SCC() {
+        super();
+    }
+
     public SCC(List<Rule> _rules) {
         rules = new SArrayList<>(_rules);
         startingRules = new SArrayList<>(_rules);
-        for (Rule r:rules) {
+        for (Rule r : rules) {
             r.setInScc();
             ruleToRuleComp.put(r, this); //XXX: remove this
         }
     }
 
-    public boolean scc() { return true; }
+    public boolean scc() {
+        return true;
+    }
 }

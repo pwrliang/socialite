@@ -33,46 +33,46 @@ public class ForWorker {
 
     public static Runnable runnable = () -> {
         System.out.println("call test");
-        SRuntimeWorker runtimeWorker = SRuntimeWorker.getInst();
-        Map<String, Table> tableMap = runtimeWorker.getTableMap();
-        DistTablePartitionMap partitionMap = runtimeWorker.getPartitionMap();
-        TableInstRegistry tableInstRegistry = runtimeWorker.getTableRegistry();
-        Table edge = tableMap.get("edge");
-        TableInst[] tableInsts = tableInstRegistry.getTableInstArray(edge.id());
-        for (TableInst tableInst : tableInsts) {
-            if (!tableInst.isEmpty()) {
-                Class<TableInst> tableInstClass = (Class<TableInst>) tableInst.getClass();
-                try {
-                    Method method = tableInstClass.getMethod("iterate", VisitorImpl.class);
-                    try {
-                        method.invoke(tableInst, new VisitorImpl() {
-                            boolean called;
-                            @Override
-                            public boolean visit_0(int a1) {
-                                if(!partitionMap.isLocal(edge.id(),a1)){
-                                    L.error("error partition");
-                                }
-//                                if(!called) {
-//                                    L.info(String.format("Worker %d first %d", runtimeWorker.getWorkerAddrMap().myIndex(), a1));
-//                                    called = true;
+        return;
+//        SRuntimeWorker runtimeWorker = SRuntimeWorker.getInst();
+//        Map<String, Table> tableMap = runtimeWorker.getTableMap();
+//        DistTablePartitionMap partitionMap = runtimeWorker.getPartitionMap();
+//        TableInstRegistry tableInstRegistry = runtimeWorker.getTableRegistry();
+//        Table edge = tableMap.get("edge");
+//        TableInst[] tableInsts = tableInstRegistry.getTableInstArray(edge.id());
+//        for (TableInst tableInst : tableInsts) {
+//            if (!tableInst.isEmpty()) {
+//                Class<TableInst> tableInstClass = (Class<TableInst>) tableInst.getClass();
+//                try {
+//                    Method method = tableInstClass.getMethod("iterate", VisitorImpl.class);
+//                    try {
+//                        method.invoke(tableInst, new VisitorImpl() {
+//                            boolean called;
+//                            @Override
+//                            public boolean visit_0(int a1) {
+//                                if(!partitionMap.isLocal(edge.id(),a1)){
+//                                    L.error("error partition");
 //                                }
-                                return false;
-                            }
-
-                            @Override
-                            public boolean visit(int a1) {
-                                return false;
-                            }
-                        });
-
-                    } catch (IllegalAccessException | InvocationTargetException e) {
-                        e.printStackTrace();
-                    }
-                } catch (NoSuchMethodException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
+////                                if(!called) {
+////                                    L.info(String.format("Worker %d first %d", runtimeWorker.getWorkerAddrMap().myIndex(), a1));
+////                                    called = true;
+////                                }
+//                                return false;
+//                            }
+//
+//                            @Override
+//                            public boolean visit(int a1) {
+//                                return false;
+//                            }
+//                        });
+//
+//                    } catch (IllegalAccessException | InvocationTargetException e) {
+//                        e.printStackTrace();
+//                    }
+//                } catch (NoSuchMethodException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
     };
 }

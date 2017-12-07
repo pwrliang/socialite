@@ -34,9 +34,12 @@ public class Z3Analysis {
                 break;
             }
         }
-        if (deltaVar != null) {
-            System.out.println();
-        }
+        if (deltaVar == null)
+            throw new RuntimeException("can not found delta variable");
+        BinOp rightExpr = locateFFunc(rule, deltaVar.name);
+        String fFuncPreOrder = preorderTraverse(rightExpr);
+        String gFuncPreOrder = funcNameToPreOrder(aggrFunc);
+        System.out.println();
 //        Rule recRule = null;
 //        for (Rule rule : parser.getRules()) {
 //            //simple recursive rule
@@ -108,6 +111,7 @@ public class Z3Analysis {
                         if (leftVar.name.equals(varNameToFind)) {
                             Function rightFunc = (Function) assignOp.arg2;
                             sExpr = sExpr.replace(leftVar.name, rightFunc.methodName());
+                            aggrFunc = rightFunc.methodName();
                             Set<Variable> inputVars = rightFunc.getInputVariables();
                             return new ArrayList<>(inputVars).get(0);
                         }
@@ -118,12 +122,32 @@ public class Z3Analysis {
         return null;
     }
 
-    String funcToPostExpr(String funcName){
-        switch (funcName){
+    BinOp locateFFunc(Rule rule, String leftVarToFind) {
+        for (Literal literal : rule.getBody()) {
+            if (literal instanceof Expr) {
+                Expr expr = (Expr) literal;
+                if (expr.root instanceof AssignOp) {
+                    AssignOp assignOp = (AssignOp) expr.root;
+                    if (assignOp.arg1 instanceof Variable &&
+                            assignOp.arg2 instanceof BinOp) {
+                        Variable leftVar = (Variable) assignOp.arg1;
+                        if (leftVar.name.equals(leftVarToFind)) {
+                            BinOp rightExpr = (BinOp) assignOp.arg2;
+                            return rightExpr;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    String funcNameToPreOrder(String funcName) {
+        switch (funcName) {
             case "sum":
                 return "+ a b";
             default:
-                throw new RuntimeException("unknown func: "+funcName);
+                throw new RuntimeException("unknown func: " + funcName);
         }
     }
 
