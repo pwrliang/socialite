@@ -25,7 +25,7 @@ import socialite.util.SociaLiteException;
 
 public class SRuntimeWorker extends SRuntime {
     public static final Log L = LogFactory.getLog(SRuntimeWorker.class);
-    static SRuntimeWorker inst = null;
+    private static SRuntimeWorker inst = null;
 
     public static SRuntimeWorker create(WorkerAddrMap addrMap, WorkerConnPool conn) {
         inst = new SRuntimeWorker(addrMap, conn);
@@ -36,14 +36,12 @@ public class SRuntimeWorker extends SRuntime {
         return inst;
     }
 
-    WorkerAddrMap workerAddrMap;
-    WorkerConnPool workerConn;
-    Sender sender;
+    private WorkerAddrMap workerAddrMap;
+    private Sender sender;
 
     public SRuntimeWorker(WorkerAddrMap _addrMap, WorkerConnPool _workerConn) {
         workerAddrMap = _addrMap;
-        workerConn = _workerConn;
-        sender = Sender.get(workerAddrMap, workerConn);
+        sender = Sender.get(workerAddrMap, _workerConn);
         tableMap = new HashMap<>();
         idleMap = new ConcurrentHashMap<>(128, 0.75f, 32);
         EvalRefCount.getInst(new WorkerNodeIdleCallback());
@@ -85,13 +83,6 @@ public class SRuntimeWorker extends SRuntime {
         }
     }
 
-    public JoinerBuilder getVisitorBuilder(Rule rule) {
-        synchronized (builderMap) {
-            assert builderMap.containsKey(rule.id());
-            return builderMap.get(rule.id());
-        }
-    }
-
     public JoinerBuilder getJoinerBuilder(int rule) {
         synchronized (builderMap) {
             assert builderMap.containsKey(rule);
@@ -112,7 +103,7 @@ public class SRuntimeWorker extends SRuntime {
             if (old.keySet().equals(newMap.keySet())) {
                 map = newMap;
             } else {
-                map = new HashMap<String, Table>(old);
+                map = new HashMap<>(old);
                 map.putAll(newMap);
             }
         }

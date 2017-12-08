@@ -62,9 +62,11 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         }
     }
 
-    public MessageTableBase[][] getMessageTableList() {
-        return messageTableList;
+    public MessageTableBase[] getMessageTableList() {
+        return messageTableList1;
     }
+
+
 
     public MessageTableBase getWritableMessageTable(int workerId) {
 //        return messageTableList[workerId][messageTableSelector.get(workerId)];
@@ -74,8 +76,6 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
     StopWatch stopWatch = new StopWatch();
 
     public ByteBuffer getSendableMessageTableByteBuffer(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
-        int writingTableInd;
-        writingTableInd = messageTableSelector.get(sendToWorkerId);//获取计算线程正在写入的表序号
 //        MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
         MessageTableBase sendableMessageTable = messageTableList1[sendToWorkerId];
         long startTime = System.currentTimeMillis();
@@ -88,7 +88,6 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
                 break;
         }
         swtichTimes.addAndGet(1);
-        messageTableSelector.set(sendToWorkerId, writingTableInd == 0 ? 1 : 0);
         // sleep to ensure switched, this is important
         // even though selector is atomic type, but computing thread cannot see the switched result immediately, i don't know why :(
         stopWatch.reset();

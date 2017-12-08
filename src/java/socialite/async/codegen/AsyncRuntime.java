@@ -56,6 +56,7 @@ public class AsyncRuntime extends BaseAsyncRuntime {
                     }
                 }
             }
+            System.gc();
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
         }

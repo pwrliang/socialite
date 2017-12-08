@@ -54,8 +54,10 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         Map<String, Table> tableMap = runtimeWorker.getTableMap();
         TableInst[] initTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getRecTableName()).id());
         TableInst[] edgeTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getEdgeTableName()).id());
-        TableInst[] extraTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getExtraTableName()).id());
-
+        TableInst[] extraTableInstArr = null;
+        if (tableMap.get(payload.getExtraTableName()) != null) {
+            extraTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getExtraTableName()).id());
+        }
         if (loadData(initTableInstArr, edgeTableInstArr, extraTableInstArr)) {//this worker is idle, stop
             createThreads();
             startThreads();
@@ -111,6 +113,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     }
                 }
             }
+            System.gc();
         } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e1) {
             e1.printStackTrace();
         }
@@ -306,11 +309,13 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 //                    System.out.println(partialSum);
                     BaseDistAsyncTable baseDistAsyncTable = (BaseDistAsyncTable) asyncTable;
                     for (int workerId = 0; workerId < workerNum; workerId++) {
-                        MessageTableBase messageTable1 = baseDistAsyncTable.getMessageTableList()[workerId][0];
-                        MessageTableBase messageTable2 = baseDistAsyncTable.getMessageTableList()[workerId][1];
-                        if (messageTable1 == null || messageTable2 == null) continue;
-                        partialSum += messageTable1.accumulate();
-                        partialSum += messageTable2.accumulate();
+                        if (workerId == myWorkerId) continue;
+//                        MessageTableBase messageTable1 = baseDistAsyncTable.getMessageTableList()[workerId][0];
+//                        MessageTableBase messageTable2 = baseDistAsyncTable.getMessageTableList()[workerId][1];
+//                        if (messageTable1 == null || messageTable2 == null) continue;
+//                        partialSum += messageTable1.accumulate();
+//                        partialSum += messageTable2.accumulate();
+                        partialSum += baseDistAsyncTable.getMessageTableList()[workerId].accumulate();
                     }
 //                    L.info("partialSum of delta: " + new BigDecimal(partialSum));
                 } else if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.VALUE || asyncConfig.getCheckType() == AsyncConfig.CheckerType.DIFF_VALUE) {

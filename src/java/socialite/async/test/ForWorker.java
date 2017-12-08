@@ -4,15 +4,16 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import socialite.dist.worker.WorkerNode;
 import socialite.parser.Table;
-import socialite.resource.DistTablePartitionMap;
 import socialite.resource.SRuntimeWorker;
 import socialite.resource.TableInstRegistry;
 import socialite.tables.TableInst;
 import socialite.visitors.VisitorImpl;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Map;
 
 public class ForWorker {
     public static final Log L = LogFactory.getLog(ForWorker.class);
@@ -33,6 +34,34 @@ public class ForWorker {
 
     public static Runnable runnable = () -> {
         System.out.println("call test");
+        TableInstRegistry tableInstRegistry = SRuntimeWorker.getInst().getTableRegistry();
+        Table table = SRuntimeWorker.getInst().getTableMap().get("Edge");
+        TableInst[] tableInsts = tableInstRegistry.getTableInstArray(table.id());
+
+        BufferedWriter writer = null;
+        try {
+            writer = new BufferedWriter(new FileWriter(String.format("/home/gengl/edge_result_%d.txt", SRuntimeWorker.getInst().getWorkerAddrMap().myIndex())));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        VisitorImpl visitor = new VisitorForSave(writer);
+        for (TableInst tableInst : tableInsts) {
+            Method method = null;
+            try {
+                method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
+
+                if (!tableInst.isEmpty()) {
+                    method.invoke(tableInst, visitor);
+                    tableInst.clear();
+                }
+            } catch (NoSuchMethodException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (InvocationTargetException e) {
+                e.printStackTrace();
+            }
+        }
         return;
 //        SRuntimeWorker runtimeWorker = SRuntimeWorker.getInst();
 //        Map<String, Table> tableMap = runtimeWorker.getTableMap();
@@ -75,4 +104,31 @@ public class ForWorker {
 //            }
 //        }
     };
+
+    static class VisitorForSave extends VisitorImpl {
+        BufferedWriter writer;
+
+        VisitorForSave(BufferedWriter writer) {
+            this.writer = writer;
+        }
+
+        int src;
+
+        @Override
+        public boolean visit_0(int a1) {
+            src = a1;
+            return true;
+        }
+
+        @Override
+        public boolean visit(int a1) {
+            try {
+                writer.write(String.format("%d\t%d\n", src, a1));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
+    }
+
 }

@@ -10,18 +10,18 @@ import socialite.util.SociaLiteException;
  * Created by jiwon on 9/10/15.
  */
 public class ClusterConf {
-    static ClusterConf inst = new ClusterConf();
+    private static ClusterConf inst = new ClusterConf();
 
     public static ClusterConf get() {
         return inst;
     }
 
-    final int maxNumWorkers;
-    int numWorkers;
-    int numWorkerThreads;
-    int workerHeapSize;
+    private final int maxNumWorkers;
+    private int numWorkers;
+    private int numWorkerThreads;
+    private int workerHeapSize;
 
-    ClusterConf() {
+    private ClusterConf() {
         numWorkers = Integer.parseInt(System.getProperty("socialite.worker.num", "2"));
         String numCores = "" + Runtime.getRuntime().availableProcessors();
         numWorkerThreads = Integer.parseInt(System.getProperty("socialite.worker.num_threads", numCores));

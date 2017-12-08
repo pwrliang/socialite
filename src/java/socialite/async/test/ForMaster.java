@@ -2,17 +2,24 @@ package socialite.async.test;
 
 import socialite.dist.master.MasterNode;
 import socialite.engine.ClientEngine;
+import socialite.parser.Table;
+import socialite.resource.SRuntimeWorker;
+import socialite.resource.TableInstRegistry;
 import socialite.tables.QueryVisitor;
+import socialite.tables.TableInst;
 import socialite.tables.Tuple;
+import socialite.visitors.VisitorImpl;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 public class ForMaster {
 
     //-ea -Dsocialite.master=master -Dsocialite.worker.num=1 -Dsocialite.output.dir=gen -Dlog4j.configuration=file:/home/gengl/socialite/conf/log4j.properties
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 //        LocalEngine localEngine = new LocalEngine();
 //        localEngine.run("edge1(int src:0..875712, (int dst)).\n" +
 //                "edge2(int src:0..875712, (int dst)).\n" +
@@ -59,13 +66,17 @@ public class ForMaster {
 //                "EdgeCnt(s, $inc(1)) :- Edge(s, t).\n" +
 //                "Rank(n, r) :- Node(n), r = 0.2 / 875713.\n" +
 //                "Rank(y, $dsum(r1)) :- Rank(x, r), Edge(x, y),  EdgeCnt(x, d), r1 = 0.8 * r / d.";
-        String prog = "Path(int n:0..875712, int dist, int prev).\n" +
-                "Edge(int src:0..875712, (int sink, int len)).\n" +
-                "Edge(s,t,cnt) :- l=$read(\"hdfs://master:9000/Datasets/SSSP/Google/edge.txt\"), (s1,s2,s3)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2), cnt=$toInt(s3).\n" +
-                "Path(n, $min(d), prev) :- n=0, d=0, prev=-1 ;\n" +
-                "                       :- Path(s, d1, prev1), Edge(s, n, weight), d=d1+weight, prev=s.";
-        clientEngine.run(prog);
-        clientEngine.run("?- Path(s, d, x).", new QueryVisitorForSave(), 0);
+//        String prog = "Path(int n:0..875712, int dist, int prev).\n" +
+//                "Edge(int src:0..875712, (int sink, int len)).\n" +
+//                "Edge(s,t,cnt) :- l=$read(\"hdfs://master:9000/Datasets/SSSP/Google/edge.txt\"), (s1,s2,s3)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2), cnt=$toInt(s3).\n" +
+//                "Path(n, $min(d), prev) :- n=0, d=0, prev=-1 ;\n" +
+//                "                       :- Path(s, d1, prev1), Edge(s, n, weight), d=d1+weight, prev=s.";
+//        clientEngine.run(prog);
+//        clientEngine.run("?- Path(s, d, x).", new QueryVisitorForSave(), 0);
+        clientEngine.run("Edge(int n, (int t)).\n" +
+                "Edge(s, t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/Google/edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n");
+
+
         clientEngine.test();
 //        clientEngine.run("edge1(int src:0..875712, (int dst)).\n" +
 //                "edge2(int src:0..875712, (int dst)).\n" +
@@ -94,6 +105,7 @@ public class ForMaster {
 //        AsyncMaster asyncMaster = new AsyncMaster(AsyncConfig.get().getDatalogProg());
 //        asyncMaster.startMaster();
     }
+
 
     static class QueryVisitorForSave extends QueryVisitor {
         BufferedWriter writer;

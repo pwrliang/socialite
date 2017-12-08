@@ -63,7 +63,7 @@ public class SRuntime {
     TableInstRegistry tableReg;
 
     TIntObjectMap<JoinerBuilder> builderMap = new TSynchronizedIntObjectMap<>(new TIntObjectHashMap<>(128));
-    TIntObjectMap<RuleMap> rulemapMap = new TSynchronizedIntObjectMap<>(new TIntObjectHashMap<>(128));
+    final TIntObjectMap<RuleMap> rulemapMap = new TSynchronizedIntObjectMap<>(new TIntObjectHashMap<>(128));
 
     ConcurrentHashMap<Integer, TaskReport> idleMap; /* epoch-id to TaskReport mapping */
 

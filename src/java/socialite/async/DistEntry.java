@@ -36,12 +36,6 @@ public class DistEntry {
             AsyncConfig.parse(TextUtils.readText(args[0]));
             L.info("master started");
             MasterNode.startMasterNode();
-//            while (!MasterNode.getInstance().allOneLine())
-//                Thread.sleep(100);
-//            ClientEngine clientEngine = new ClientEngine();
-//            clientEngine.run("edge(int src:0..875712, (int dst)).\n" +
-//                    "edge(s,t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/Google/edge.txt\"),(s1, s2)=$split(l, \"\t\"),s=$toInt(s1),t=$toInt(s2).\n");
-//            clientEngine.test();
             AsyncMaster asyncMaster = new AsyncMaster(AsyncConfig.get().getDatalogProg());
             asyncMaster.startMaster();
             IntStream.rangeClosed(1, workerNum).forEach(dest ->
@@ -55,7 +49,7 @@ public class DistEntry {
             NetworkThread.get().read(0, MsgType.EXIT.ordinal());
         }
         NetworkThread.get().shutdown();
-//        NetworkThread.get().join();
+        NetworkThread.get().join();
         MPI.Finalize();
         L.info("process " + machineId + " exit.");
         System.exit(0);
