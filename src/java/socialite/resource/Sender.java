@@ -1,13 +1,8 @@
 package socialite.resource;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import socialite.dist.msg.WorkerMessage;
 import socialite.dist.worker.ChannelMux;
 import socialite.dist.worker.WorkerConnPool;
@@ -18,28 +13,34 @@ import socialite.util.SendQueue;
 import socialite.util.SociaLiteException;
 import socialite.util.UnresolvedSocketAddr;
 
-public class Sender {
-    static final Log L=LogFactory.getLog(Sender.class);
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
-    static Sender theInstance=null;
+public class Sender {
+    static final Log L = LogFactory.getLog(Sender.class);
+
+    static Sender theInstance = null;
+
     public static Sender get(WorkerAddrMap _workerAddrMap, WorkerConnPool _workerConn) {
-        if (theInstance==null) {
-            theInstance=new Sender(_workerAddrMap, _workerConn);
+        if (theInstance == null) {
+            theInstance = new Sender(_workerAddrMap, _workerConn);
         } else {
             theInstance.init(_workerAddrMap, _workerConn);
         }
         return theInstance;
     }
+
     public static void shutdown() {
-        if (theInstance!=null) {
-            for (Thread t:theInstance.senderThreads) {
+        if (theInstance != null) {
+            for (Thread t : theInstance.senderThreads) {
                 t.interrupt();
             }
-            theInstance.senderThreads=null;
+            theInstance.senderThreads = null;
         }
     }
+
     public static SendQueue sendQ() {
-        if (theInstance==null) return null;
+        if (theInstance == null) return null;
         return theInstance.sendQ;
     }
 
@@ -57,48 +58,52 @@ public class Sender {
         workerAddrMap = _workerAddrMap;
         workerConn = _workerConn;
         sendChannel$ = new ChannelMux[workerAddrMap.size()];
-        int senderNum = Runtime.getRuntime().availableProcessors()/4;
+        int senderNum = Runtime.getRuntime().availableProcessors() / 4;
         if (senderNum < 10) senderNum = 10;
         if (senderNum > 64) senderNum = 64;
         initSenderThreads(senderNum);
     }
+
     void shutdownSenderThreads() {
-        for (Thread t:senderThreads) {
-            if (t!=null) {
+        for (Thread t : senderThreads) {
+            if (t != null) {
                 t.interrupt();
-                try { t.join(); }
-                catch (InterruptedException e) { }
+                try {
+                    t.join();
+                } catch (InterruptedException e) {
+                }
             }
         }
     }
+
     void initSenderThreads(int senderNum) {
-        if (senderThreads!=null) {
+        if (senderThreads != null) {
             shutdownSenderThreads();
         }
         sendQ = new SendQueue();
         senderThreads = new Thread[senderNum];
-        for (int i=0; i<senderNum; i++) {
+        for (int i = 0; i < senderNum; i++) {
             SendReally sender = new SendReally(sendQ, this);
-            senderThreads[i] = new Thread(sender, "Sender #"+i);
+            senderThreads[i] = new Thread(sender, "Sender #" + i);
             senderThreads[i].start();
         }
     }
 
     void cacheSendChannelFor(int machineIdx) {
-        if (sendChannel$[machineIdx]==null) {
+        if (sendChannel$[machineIdx] == null) {
             UnresolvedSocketAddr sockaddr = workerAddrMap.getDataAddr(machineIdx);
             ChannelMux sendChMux = workerConn.sendChannelMuxFor(sockaddr);
             sendChannel$[machineIdx] = sendChMux;
 
-            if (sendChMux==null) {
-                throw new SociaLiteException("SendChannel is null for machine:"+machineIdx+", workerAddr:"+sockaddr);
+            if (sendChMux == null) {
+                throw new SociaLiteException("SendChannel is null for machine:" + machineIdx + ", workerAddr:" + sockaddr);
             }
         }
     }
 
     public boolean send(int machineIdx, EvalWithTable eval) {
         TableInst origT = eval.getTable();
-        assert origT!=null;
+        assert origT != null;
         WorkerMessage workerMsg = new WorkerMessage(eval);
         boolean reuseTable = send(machineIdx, workerMsg);
         if (reuseTable) origT.clear();
@@ -106,15 +111,17 @@ public class Sender {
     }
 
     void serializeMsg(WorkerMessage workerMsg) {
-        try { workerMsg.serialize(false); }
-        catch (IOException e) {
-            L.fatal("Exception while serializing worker message:"+e);
+        try {
+            workerMsg.serialize(false);
+        } catch (IOException e) {
+            L.fatal("Exception while serializing worker message:" + e);
             L.fatal(ExceptionUtils.getStackTrace(e));
             throw new SociaLiteException(e);
         }
     }
+
     boolean send(int machineIdx, WorkerMessage workerMsg) {
-        if (machineIdx==-1) {
+        if (machineIdx == -1) {
             return broadcast(workerMsg);
         }
 
@@ -123,21 +130,22 @@ public class Sender {
         int estimated = workerMsg.guessMessageSize();
         int bufferSize = ByteBufferPool.bufferSize();
         int smallBufferSize = ByteBufferPool.smallBufferSize();
-        if (estimated > bufferSize/2 && estimated <= bufferSize) {
+        if (estimated > bufferSize / 2 && estimated <= bufferSize) {
             if (ByteBufferPool.bufferAvailable()) {
                 serializeMsg(workerMsg);
             }
-        } else if (estimated > smallBufferSize/2 && estimated <= smallBufferSize){
+        } else if (estimated > smallBufferSize / 2 && estimated <= smallBufferSize) {
             if (ByteBufferPool.smallBufferAvailable()) {
                 serializeMsg(workerMsg);
             }
         }
         return sendQ.add(workerMsg);
     }
+
     boolean broadcast(WorkerMessage workerMsg) {
         int self = workerAddrMap.myIndex();
-        for (int i=0; i<workerAddrMap.size(); i++) {
-            if (i!=self) cacheSendChannelFor(i);
+        for (int i = 0; i < workerAddrMap.size(); i++) {
+            if (i != self) cacheSendChannelFor(i);
         }
 
         workerMsg.setWorkerId(-1);
@@ -149,37 +157,40 @@ public class Sender {
 class SendTask {
     int machineIdx;
     ByteBuffer buffer;
+
     SendTask(int idx, ByteBuffer bb) {
-        machineIdx=idx;
-        buffer=bb;
+        machineIdx = idx;
+        buffer = bb;
     }
 }
-class SendReally implements Runnable {
-    public static final Log L=LogFactory.getLog(Sender.class);
 
-    static volatile long totalTimeToSend=0;
+class SendReally implements Runnable {
+    public static final Log L = LogFactory.getLog(Sender.class);
+
+    static volatile long totalTimeToSend = 0;
     SendQueue sendQ;
     Sender sender;
+
     SendReally(SendQueue _sendQ, Sender _sender) {
-        sendQ=_sendQ;
-        sender=_sender;
+        sendQ = _sendQ;
+        sender = _sender;
     }
 
     @Override
     public void run() {
         while (true) {
-            WorkerMessage m=null;
-            ByteBuffer buffer=null;
+            WorkerMessage m = null;
+            ByteBuffer buffer = null;
             try {
                 m = sendQ.reserve();
-                synchronized(m) {
+                synchronized (m) {
                     buffer = m.serialize();
                 }
                 int epochId = m.getEpochId();
-                if (m.getWorkerId()==-1) {
+                if (m.getWorkerId() == -1) {
                     int self = sender.workerAddrMap.myIndex();
-                    for (int i=0; i<sender.sendChannel$.length; i++) {
-                        if (i==self) continue;
+                    for (int i = 0; i < sender.sendChannel$.length; i++) {
+                        if (i == self) continue;
                         sender.workerConn.send(sender.sendChannel$[i], epochId, buffer);
                     }
                     buffer.rewind();
@@ -189,11 +200,11 @@ class SendReally implements Runnable {
             } catch (InterruptedException ie) {
                 break;
             } catch (Exception e) {
-                L.fatal("Exception while sending table:"+e);
+                L.fatal("Exception while sending table:" + e);
                 L.fatal(ExceptionUtils.getStackTrace(e));
             } finally {
                 sendQ.pop(m);
-                if (buffer!=null)
+                if (buffer != null)
                     ByteBufferPool.get().free(buffer);
             }
         }

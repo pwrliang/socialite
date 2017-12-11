@@ -4,6 +4,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import socialite.dist.worker.WorkerNode;
 import socialite.parser.Table;
+import socialite.resource.DistTablePartitionMap;
 import socialite.resource.SRuntimeWorker;
 import socialite.resource.TableInstRegistry;
 import socialite.tables.TableInst;
@@ -12,6 +13,7 @@ import socialite.visitors.VisitorImpl;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -45,11 +47,17 @@ public class ForWorker {
             e.printStackTrace();
         }
         VisitorImpl visitor = new VisitorForSave(writer);
+        DistTablePartitionMap partitionMap = SRuntimeWorker.getInst().getPartitionMap();
+        int partitionNum = partitionMap.partitionNum(table.id());
+        L.info(String.format("partition num:%d", partitionNum));
         for (TableInst tableInst : tableInsts) {
             Method method = null;
             try {
                 method = tableInst.getClass().getDeclaredMethod("iterate", VisitorImpl.class);
-
+                Field baseField = tableInst.getClass().getDeclaredField("base");
+                baseField.setAccessible(true);
+                int base = (Integer) baseField.get(tableInst);
+                System.out.println(String.format("myIdx:%d base:%d", SRuntimeWorker.getInst().getWorkerAddrMap().myIndex(), base));
                 if (!tableInst.isEmpty()) {
                     method.invoke(tableInst, visitor);
                     tableInst.clear();
@@ -59,6 +67,8 @@ public class ForWorker {
             } catch (IllegalAccessException e) {
                 e.printStackTrace();
             } catch (InvocationTargetException e) {
+                e.printStackTrace();
+            } catch (NoSuchFieldException e) {
                 e.printStackTrace();
             }
         }

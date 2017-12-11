@@ -1,5 +1,6 @@
 package socialite.async.dist.worker;
 
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import socialite.async.AsyncConfig;
@@ -28,22 +29,39 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DistAsyncRuntime extends BaseAsyncRuntime {
     private static final Log L = LogFactory.getLog(DistAsyncRuntime.class);
+    private static DistAsyncRuntime inst;
     private final int myWorkerId;
     private final int workerNum;
     private NetworkThread networkThread;
-    private Sender sender;
-    private Receiver receiver;
+    private Sender[] sender;
+    private Receiver[] receiver;
     private Payload payload;
     private volatile boolean stopTransmitting;
+    //////profile/////
+    long send;
+    long recv;
+    long compute;
+    public AtomicInteger serialize = new AtomicInteger(0);
+    public AtomicInteger deserialize = new AtomicInteger(0);
+    //////profile/////
+    private static final int NUM_OF_SENDER_RECEIVER = 2;
 
-    DistAsyncRuntime() {
+
+    private DistAsyncRuntime() {
         workerNum = ClusterConf.get().getNumWorkers();
         myWorkerId = ClusterConf.get().getRank() - 1;
         networkThread = NetworkThread.get();
         networkThread.start();
+    }
+
+    public static synchronized DistAsyncRuntime getInst() {
+        if (inst == null)
+            inst = new DistAsyncRuntime();
+        return inst;
     }
 
     @Override
@@ -130,8 +148,24 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         super.createThreads();
         arrangeTask();
         if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
-            sender = new Sender();
-            receiver = new Receiver();
+            createSenderReceiver();
+        }
+    }
+
+    private void createSenderReceiver() {
+        sender = new Sender[NUM_OF_SENDER_RECEIVER];
+        receiver = new Receiver[NUM_OF_SENDER_RECEIVER];
+        int blockSize = workerNum / NUM_OF_SENDER_RECEIVER;
+        assert blockSize > 0;
+        if (blockSize == 0) blockSize = 1;
+
+        for (int i = 0; i < NUM_OF_SENDER_RECEIVER; i++) {
+            int start = i * blockSize;
+            int end = (i + 1) * blockSize;
+            if (i == NUM_OF_SENDER_RECEIVER - 1)
+                end = workerNum;
+            sender[i] = new Sender(start, end);
+            receiver[i] = new Receiver(start, end);
         }
     }
 
@@ -139,8 +173,8 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         if (AsyncConfig.get().getPriorityType() == AsyncConfig.PriorityType.GLOBAL)
             schedulerThread.start();
         if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
-            sender.start();
-            receiver.start();
+            Arrays.stream(sender).forEach(Thread::start);
+            Arrays.stream(receiver).forEach(Thread::start);
             L.info("network thread started");
             checkerThread.start();
             L.info("checker started");
@@ -155,9 +189,21 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             if (asyncConfig.getEngineType() == AsyncConfig.EngineType.ASYNC) {
                 checkerThread.join();
                 L.info("CheckThread exited");
-                sender.join();
+                Arrays.stream(sender).forEach(thread -> {
+                    try {
+                        thread.join();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                });
                 L.info(String.format("%d SenderThread exited", myWorkerId));
-                receiver.join();
+                Arrays.stream(receiver).forEach(thread -> {
+                    try {
+                        thread.join();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                });
                 L.info(String.format("%d RecvThread exited", myWorkerId));
             }
         } catch (InterruptedException e) {
@@ -167,25 +213,33 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
     private class Sender extends Thread {
         private SerializeTool serializeTool;
+        private int workerIdFrom;
+        private int workerIdTo;
 
-        private Sender() {
+        private Sender(int workerIdFrom, int workerIdTo) {
             serializeTool = new SerializeTool.Builder()
                     .setSerializeTransient(true) //!!!!!!!!!!AtomicDouble's value field is transient
                     .build();
+            this.workerIdFrom = workerIdFrom;
+            this.workerIdTo = workerIdTo;
         }
 
         @Override
         public void run() {
             try {
                 while (!stopTransmitting) {
-                    for (int sendToWorkerId = 0; sendToWorkerId < workerNum; sendToWorkerId++) {
+                    StopWatch stopWatch = new StopWatch();
+                    stopWatch.start();
+                    for (int sendToWorkerId = workerIdFrom; sendToWorkerId < workerIdTo; sendToWorkerId++) {
                         if (sendToWorkerId == myWorkerId) continue;
-                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer(sendToWorkerId, serializeTool);
-//                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBufferMVCC(sendToWorkerId, serializeTool);
+//                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer(sendToWorkerId, serializeTool);
+                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBufferMVCC(sendToWorkerId, serializeTool);
 
                         if (stopTransmitting) return;
                         networkThread.send(buffer, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     }
+                    stopWatch.stop();
+                    send += stopWatch.getTime();
                     if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) break;
                 }
             } catch (Exception e) {
@@ -196,19 +250,25 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
 
     private class Receiver extends Thread {
         private SerializeTool serializeTool;
-        private Class<?> klass;
+        private Class<?> messageTableClass;
+        private int workerIdFrom;
+        private int workerIdTo;
 
-        private Receiver() {
+        private Receiver(int workerIdFrom, int workerIdTo) {
+            messageTableClass = Loader.forName("socialite.async.codegen.MessageTable");
             serializeTool = new SerializeTool.Builder()
                     .setSerializeTransient(true)
                     .build();
-            klass = Loader.forName("socialite.async.codegen.MessageTable");
+            this.workerIdFrom = workerIdFrom;
+            this.workerIdTo = workerIdTo;
         }
 
         @Override
         public void run() {
             while (!stopTransmitting) {
-                for (int recvFromWorkerId = 0; recvFromWorkerId < workerNum; recvFromWorkerId++) {
+                StopWatch stopWatch = new StopWatch();
+                stopWatch.start();
+                for (int recvFromWorkerId = workerIdFrom; recvFromWorkerId < workerIdTo; recvFromWorkerId++) {
                     if (recvFromWorkerId == myWorkerId) continue;
                     ByteBuffer buffer;
                     while ((buffer = networkThread.tryReadByteBuffer(recvFromWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal())) == null) {
@@ -220,9 +280,11 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                             e.printStackTrace();
                         }
                     }
-                    MessageTableBase messageTable = (MessageTableBase) serializeTool.fromByteBuffer(buffer, klass);
+                    MessageTableBase messageTable = (MessageTableBase) serializeTool.fromByteBuffer(buffer, messageTableClass);
                     ((BaseDistAsyncTable) asyncTable).applyBuffer(messageTable);
                 }
+                stopWatch.stop();
+                recv += stopWatch.getTime();
                 if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) break;
             }
         }
@@ -260,7 +322,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     }
                     break;//exit function, run will be called next round
                 } else {
-                    L.info("switch times: " + asyncTable.swtichTimes.get());
+//                    L.info("switch times: " + asyncTable.swtichTimes.get());
                     networkThread.read(0, MsgType.REQUIRE_TERM_CHECK.ordinal());
                     double partialSum = aggregate();
                     double[] data = new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]};
@@ -277,16 +339,23 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         }
 
         private void sendAndWait() {
-            sender = new Sender();
-            receiver = new Receiver();
-            sender.start();
-            receiver.start();
-            try {
-                sender.join();
-                receiver.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            createSenderReceiver();
+            Arrays.stream(sender).forEach(Thread::start);
+            Arrays.stream(receiver).forEach(Thread::start);
+            Arrays.stream(sender).forEach(thread -> {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+            Arrays.stream(receiver).forEach(thread -> {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
         }
 
         private void flush() {
@@ -299,6 +368,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             }
             stopTransmitting = true;
             L.info("flushed");
+            L.info(String.format("send:%d recv:%d", send, recv));
         }
 
         private double aggregate() {

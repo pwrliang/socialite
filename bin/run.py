@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 from common import *
+from kill import kill_all
 import sys
 
 if len(sys.argv) != 2:
@@ -17,7 +18,6 @@ cmd = """%s/bin/mpirun
  --mca btl ^openib
  %s/bin/java
  -Xmx%dm
- -ea
  -Dsocialite.master=%s
  -Dsocialite.worker.num=%d
  -Dlog4j.configuration=file:%s
@@ -29,7 +29,5 @@ cmd = """%s/bin/mpirun
     HEAP_SIZE, MASTER_HOSTNAME, WORKER_NUM, SOCIALITE_PREFIX + '/conf/log4j.properties',
     SOCIALITE_PREFIX + '/gen', class_path, PROG_PATH, SOCIALITE_PREFIX + "/logs/master.log")
 cmd = cmd.replace('\n', '')
-print cmd
-os.system('pkill -f DistEntry')
+kill_all()
 os.system(cmd)
-os.system('pkill -f DistEntry')

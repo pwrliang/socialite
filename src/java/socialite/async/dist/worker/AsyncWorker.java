@@ -15,7 +15,7 @@ public class AsyncWorker {
     private DistAsyncRuntime distAsyncRuntime;
 
     public AsyncWorker() throws InterruptedException {
-        distAsyncRuntime = new DistAsyncRuntime();
+        distAsyncRuntime = DistAsyncRuntime.getInst();
     }
 
     public void startWorker() {

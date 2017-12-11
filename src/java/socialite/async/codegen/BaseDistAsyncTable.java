@@ -3,6 +3,7 @@ package socialite.async.codegen;
 
 import org.apache.commons.lang3.time.StopWatch;
 import socialite.async.AsyncConfig;
+import socialite.async.dist.worker.DistAsyncRuntime;
 import socialite.async.util.SerializeTool;
 import socialite.resource.DistTablePartitionMap;
 import socialite.visitors.VisitorImpl;
@@ -67,29 +68,29 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
     }
 
 
-
     public MessageTableBase getWritableMessageTable(int workerId) {
-//        return messageTableList[workerId][messageTableSelector.get(workerId)];
-        return messageTableList1[workerId];
+        return messageTableList[workerId][messageTableSelector.get(workerId)];
+//        return messageTableList1[workerId];
     }
 
-    StopWatch stopWatch = new StopWatch();
 
     public ByteBuffer getSendableMessageTableByteBuffer(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
 //        MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
         MessageTableBase sendableMessageTable = messageTableList1[sendToWorkerId];
         long startTime = System.currentTimeMillis();
         //in sync mode, all computing thread write to message table when barrier is triggered, so we don't have to wait
-        while (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC &&
-                sendableMessageTable.size() < messageTableUpdateThreshold
-                ) {
-            Thread.sleep(1);
-            if ((System.currentTimeMillis() - startTime) >= AsyncConfig.get().getMessageTableWaitingInterval())
-                break;
+        if (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC) {
+            while (sendableMessageTable.size() < messageTableUpdateThreshold) {
+                Thread.sleep(1);
+                if (sendableMessageTable.accumulate() > 0.1)
+                    break;
+                if ((System.currentTimeMillis() - startTime) >= AsyncConfig.get().getMessageTableWaitingInterval())
+                    break;
+            }
         }
-        swtichTimes.addAndGet(1);
         // sleep to ensure switched, this is important
         // even though selector is atomic type, but computing thread cannot see the switched result immediately, i don't know why :(
+        StopWatch stopWatch = new StopWatch();
         stopWatch.reset();
         stopWatch.start();
 //        System.out.println(sendableMessageTable.size());
@@ -99,12 +100,14 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
             sendableMessageTable.resetDelta();
         }
         stopWatch.stop();
+        DistAsyncRuntime.getInst().serialize.addAndGet((int) stopWatch.getTime());
 //        System.out.println("serial time " + stopWatch.getTime());
         return buffer;
     }
 
     /**
      * this method is inefficient, although MVCC will avoid lock, but will cause "invalid information" flushing the network.
+     *
      * @param sendToWorkerId
      * @param serializeTool
      * @return
@@ -117,18 +120,25 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
         long startTime = System.currentTimeMillis();
         //in sync mode, all computing thread write to message table when barrier is triggered, so we don't have to wait
-        while (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC &&
-                sendableMessageTable.size() < messageTableUpdateThreshold) {
+        if (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC) {
+            while (sendableMessageTable.size() < messageTableUpdateThreshold) {
 //            Thread.sleep(1);
-            if ((System.currentTimeMillis() - startTime) >= AsyncConfig.get().getMessageTableWaitingInterval())
-                break;
+                if (sendableMessageTable.accumulate() > 0.1)
+                    break;
+                if ((System.currentTimeMillis() - startTime) >= AsyncConfig.get().getMessageTableWaitingInterval())
+                    break;
+            }
         }
         swtichTimes.addAndGet(1);
         messageTableSelector.set(sendToWorkerId, writingTableInd == 0 ? 1 : 0);
         // sleep to ensure switched, this is important
         // even though selector is atomic type, but computing thread cannot see the switched result immediately, i don't know why :(
-        Thread.sleep(10);
-        ByteBuffer buffer = serializeTool.toByteBuffer(2048 + sendableMessageTable.size() * (8 + 8), sendableMessageTable);
+        int lastSize;
+        do {
+            lastSize = sendableMessageTable.size();
+            Thread.sleep(10);
+        } while (sendableMessageTable.size() != lastSize);
+        ByteBuffer buffer = serializeTool.toByteBuffer(4096 + sendableMessageTable.size() * (8 + 8 + 8), sendableMessageTable);
         sendableMessageTable.resetDelta();
         return buffer;
     }

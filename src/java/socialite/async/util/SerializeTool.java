@@ -115,6 +115,12 @@ public class SerializeTool {
             return this;
         }
 
+        public Builder registry(Class<?> klass, int id) {
+            kryo.register(klass, id);
+            kryo.setRegistrationRequired(true);
+            return this;
+        }
+
         public Builder setSerializeTransient(boolean enable) {
             kryo.getFieldSerializerConfig().setSerializeTransient(enable);
             return this;

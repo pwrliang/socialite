@@ -49,7 +49,7 @@ public class AsyncConfig {
         else if (engineType == EngineType.ASYNC)
             sb.append("ASYNC");
         sb.append("\n");
-        sb.append("NETWORK_INFO").append(networkInfo ? "TRUE" : "FALSE").append("\n");
+        sb.append("NETWORK_INFO:").append(networkInfo ? "TRUE" : "FALSE").append("\n");
         sb.append("THREAD_NUM:").append(threadNum).append("\n");
         sb.append("INIT_SIZE:").append(initSize).append("\n");
         sb.append("MESSAGE_UPDATE_THRESHOLD:").append(messageTableUpdateThreshold).append("\n");

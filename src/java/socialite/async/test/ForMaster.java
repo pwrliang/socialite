@@ -73,7 +73,7 @@ public class ForMaster {
 //                "                       :- Path(s, d1, prev1), Edge(s, n, weight), d=d1+weight, prev=s.";
 //        clientEngine.run(prog);
 //        clientEngine.run("?- Path(s, d, x).", new QueryVisitorForSave(), 0);
-        clientEngine.run("Edge(int n, (int t)).\n" +
+        clientEngine.run("Edge(int n:0..875712, (int t)).\n" +
                 "Edge(s, t) :- l=$read(\"hdfs://master:9000/Datasets/PageRank/Google/edge.txt\"), (s1,s2)=$split(l, \"\t\"), s=$toInt(s1), t=$toInt(s2).\n");
 
 
