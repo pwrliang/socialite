@@ -3,12 +3,14 @@ package socialite.async.codegen;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import socialite.async.AsyncConfig;
+import socialite.async.dist.MsgType;
+import socialite.async.util.NetworkThread;
 import socialite.tables.TableInst;
 import socialite.visitors.VisitorImpl;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public class AsyncRuntime extends BaseAsyncRuntime {
@@ -70,7 +72,6 @@ public class AsyncRuntime extends BaseAsyncRuntime {
         loadData(initTableInstArr, edgeTableInstArr, extraTableInstArr);
         L.info("Data Loaded size:" + asyncTable.getSize());
         arrangeTask();
-
         Arrays.stream(computingThreads).forEach(ComputingThread::start);
         if (AsyncConfig.get().getPriorityType() == AsyncConfig.PriorityType.GLOBAL)
             schedulerThread.start();

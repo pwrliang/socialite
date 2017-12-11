@@ -1,5 +1,5 @@
 import "Utils.stg"
-DistAsyncTable(sync, name, keyType, valueType, dynamic, deltaType, aggrType, weightType, extraType, expr) ::= <<
+DistAsyncTable(sync, name, keyType, MVCC, valueType, dynamic, deltaType, aggrType, weightType, extraType, expr) ::= <<
 package socialite.async.codegen;
 <importForDistTable()>
 //algorithm <name>
@@ -119,7 +119,13 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                         <endif>
                     } else {
                         MessageTable messageTable = (MessageTable)getWritableMessageTable(idx);
-                        messageTable.apply(adjacency, 1);
+                        <if(MVCC)>
+                            messageTable.apply(dst, 1);
+                        <else>
+                            synchronized(messageTable) {
+                                messageTable.apply(dst, 1);
+                            }
+                        <endif>
                     }
                 }
                 sentFlagList.set(localInd, true);
@@ -208,9 +214,13 @@ public class DistAsyncTable extends BaseDistAsyncTable{
                     <endif>
                 } else {
                     MessageTable messageTable = (MessageTable)getWritableMessageTable(idx);
-                   // synchronized(messageTable){//comment this line to enable MVCC
-                       messageTable.apply(dst, newDelta);
-                    //}
+                    <if(MVCC)>
+                        messageTable.apply(dst, newDelta);
+                    <else>
+                        synchronized(messageTable) {
+                            messageTable.apply(dst, newDelta);
+                        }
+                    <endif>
                 }
             }
         <endif>

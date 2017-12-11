@@ -41,13 +41,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
     private Receiver[] receiver;
     private Payload payload;
     private volatile boolean stopTransmitting;
-    //////profile/////
-    long send;
-    long recv;
-    long compute;
-    public AtomicInteger serialize = new AtomicInteger(0);
-    public AtomicInteger deserialize = new AtomicInteger(0);
-    //////profile/////
     private static final int NUM_OF_SENDER_RECEIVER = 2;
 
 
@@ -77,6 +70,7 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             extraTableInstArr = tableInstRegistry.getTableInstArray(tableMap.get(payload.getExtraTableName()).id());
         }
         if (loadData(initTableInstArr, edgeTableInstArr, extraTableInstArr)) {//this worker is idle, stop
+            clearData();
             createThreads();
             startThreads();
         } else {//this worker is idle
@@ -90,6 +84,11 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
         payload = serializeTool.fromBytes(data, Payload.class);
         AsyncConfig.set(payload.getAsyncConfig());
         L.info("RECV CMD NOTIFY_INIT CONFIG:" + AsyncConfig.get());
+    }
+
+    void clearData() {
+        networkThread.send(new byte[1], 0, MsgType.CLEAR_DATA.ordinal());
+        networkThread.read(0, MsgType.CLEAR_DATA_DONE.ordinal());
     }
 
     @Override
@@ -231,15 +230,17 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     StopWatch stopWatch = new StopWatch();
                     stopWatch.start();
                     for (int sendToWorkerId = workerIdFrom; sendToWorkerId < workerIdTo; sendToWorkerId++) {
+                        ByteBuffer buffer;
                         if (sendToWorkerId == myWorkerId) continue;
-//                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer(sendToWorkerId, serializeTool);
-                        ByteBuffer buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBufferMVCC(sendToWorkerId, serializeTool);
+                        if (asyncConfig.isMVCC())
+                            buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBufferMVCC(sendToWorkerId, serializeTool);
+                        else
+                            buffer = ((BaseDistAsyncTable) asyncTable).getSendableMessageTableByteBuffer(sendToWorkerId, serializeTool);
 
                         if (stopTransmitting) return;
                         networkThread.send(buffer, sendToWorkerId + 1, MsgType.MESSAGE_TABLE.ordinal());
                     }
                     stopWatch.stop();
-                    send += stopWatch.getTime();
                     if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) break;
                 }
             } catch (Exception e) {
@@ -284,7 +285,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     ((BaseDistAsyncTable) asyncTable).applyBuffer(messageTable);
                 }
                 stopWatch.stop();
-                recv += stopWatch.getTime();
                 if (asyncConfig.getEngineType() != AsyncConfig.EngineType.ASYNC) break;
             }
         }
@@ -322,7 +322,6 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
                     }
                     break;//exit function, run will be called next round
                 } else {
-//                    L.info("switch times: " + asyncTable.swtichTimes.get());
                     networkThread.read(0, MsgType.REQUIRE_TERM_CHECK.ordinal());
                     double partialSum = aggregate();
                     double[] data = new double[]{partialSum, updateCounter.get(), rxTx[0], rxTx[1]};
@@ -368,31 +367,31 @@ public class DistAsyncRuntime extends BaseAsyncRuntime {
             }
             stopTransmitting = true;
             L.info("flushed");
-            L.info(String.format("send:%d recv:%d", send, recv));
         }
 
         private double aggregate() {
             double partialSum = 0;
+            BaseDistAsyncTable baseDistAsyncTable = (BaseDistAsyncTable) asyncTable;
+
             if (asyncTable != null) {//null indicate this worker is idle
                 if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.DELTA || asyncConfig.getCheckType() == AsyncConfig.CheckerType.DIFF_DELTA) {
                     partialSum = asyncTable.accumulateDelta();
-//                    System.out.println(partialSum);
-                    BaseDistAsyncTable baseDistAsyncTable = (BaseDistAsyncTable) asyncTable;
+
                     for (int workerId = 0; workerId < workerNum; workerId++) {
                         if (workerId == myWorkerId) continue;
-//                        MessageTableBase messageTable1 = baseDistAsyncTable.getMessageTableList()[workerId][0];
-//                        MessageTableBase messageTable2 = baseDistAsyncTable.getMessageTableList()[workerId][1];
-//                        if (messageTable1 == null || messageTable2 == null) continue;
-//                        partialSum += messageTable1.accumulate();
-//                        partialSum += messageTable2.accumulate();
-                        partialSum += baseDistAsyncTable.getMessageTableList()[workerId].accumulate();
+                        //to check the termination , the message also should be considered
+                        if (asyncConfig.isMVCC()) {
+                            MessageTableBase messageTable1 = baseDistAsyncTable.getMessageTableListPair()[workerId][0];
+                            MessageTableBase messageTable2 = baseDistAsyncTable.getMessageTableListPair()[workerId][1];
+                            partialSum += messageTable1.accumulate();
+                            partialSum += messageTable2.accumulate();
+                        } else {
+                            partialSum += baseDistAsyncTable.getMessageTableList()[workerId].accumulate();
+                        }
                     }
-//                    L.info("partialSum of delta: " + new BigDecimal(partialSum));
                 } else if (asyncConfig.getCheckType() == AsyncConfig.CheckerType.VALUE || asyncConfig.getCheckType() == AsyncConfig.CheckerType.DIFF_VALUE) {
                     partialSum = asyncTable.accumulateValue();
-//                    L.info("sum of value: " + new BigDecimal(partialSum));
                 }
-                //accumulate rest message
             }
             return partialSum;
         }

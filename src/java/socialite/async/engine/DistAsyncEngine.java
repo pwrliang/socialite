@@ -17,6 +17,7 @@ import socialite.parser.DeltaRule;
 import socialite.parser.Parser;
 import socialite.parser.Rule;
 import socialite.parser.antlr.TableDecl;
+import socialite.resource.SRuntimeMaster;
 import socialite.util.SociaLiteException;
 import socialite.yarn.ClusterConf;
 
@@ -86,6 +87,7 @@ public class DistAsyncEngine implements Runnable {
         compile();
         runReally();
         sendCmd();
+        waitForClear();
         FeedBackThread feedBackThread = new FeedBackThread();
         feedBackThread.start();
         try {
@@ -103,10 +105,9 @@ public class DistAsyncEngine implements Runnable {
 
     private void sendCmd() {
         SerializeTool serializeTool = new SerializeTool.Builder().build();
-
-
         LinkedHashMap<String, byte[]> compiledClasses = asyncCodeGenMain.getCompiledClasses();
         Payload payload = new Payload(AsyncConfig.get(), compiledClasses);
+
         payload.setRecTableName(asyncAnalysis.getRecPName());
         payload.setEdgeTableName(asyncAnalysis.getEdgePName());
         payload.setExtraTableName(asyncAnalysis.getExtraPName());
@@ -115,6 +116,17 @@ public class DistAsyncEngine implements Runnable {
         IntStream.rangeClosed(1, workerNum).forEach(dest ->
                 networkThread.send(data, dest, MsgType.NOTIFY_INIT.ordinal())
         );
+    }
+
+    private void waitForClear() {
+        IntStream.rangeClosed(1, workerNum).forEach(src -> networkThread.read(src, MsgType.CLEAR_DATA.ordinal()));
+
+        SRuntimeMaster.getInst().getTableMap().values().forEach(table -> {
+            L.info(String.format("Table %s droped", table.name()));
+            clientEngine.run(String.format("drop %s.", table.name()));
+        });
+        clientEngine.runGc();
+        IntStream.rangeClosed(1,workerNum).forEach(dest->networkThread.send(new byte[1],dest,MsgType.CLEAR_DATA_DONE.ordinal()));
     }
 
     private class FeedBackThread extends Thread {

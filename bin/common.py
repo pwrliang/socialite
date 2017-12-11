@@ -18,7 +18,7 @@ HOST_NAME = socket.gethostname()
 MASTER_HOSTNAME = None
 WORKER_HOSTNAME_LIST = []
 WORKER_NUM = 0
-HEAP_SIZE = 6000
+HEAP_SIZE = 7000
 THREAD_NUM = 4
 
 error_var = None

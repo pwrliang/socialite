@@ -19,6 +19,7 @@ public class AsyncConfig {
     private EngineType engineType;
     private boolean debugging;
     private boolean networkInfo;
+    private boolean MVCC;
     private int threadNum;
     private int initSize;
     private int messageTableUpdateThreshold;
@@ -50,6 +51,7 @@ public class AsyncConfig {
             sb.append("ASYNC");
         sb.append("\n");
         sb.append("NETWORK_INFO:").append(networkInfo ? "TRUE" : "FALSE").append("\n");
+        sb.append("MVCC:").append(MVCC ? "TRUE" : "FALSE").append("\n");
         sb.append("THREAD_NUM:").append(threadNum).append("\n");
         sb.append("INIT_SIZE:").append(initSize).append("\n");
         sb.append("MESSAGE_UPDATE_THRESHOLD:").append(messageTableUpdateThreshold).append("\n");
@@ -114,6 +116,10 @@ public class AsyncConfig {
 
     public boolean isNetworkInfo() {
         return networkInfo;
+    }
+
+    public boolean isMVCC() {
+        return MVCC;
     }
 
     public double getSchedulePortion() {
@@ -185,6 +191,7 @@ public class AsyncConfig {
         private boolean debugging;
         private int threadNum;
         private int initSize;
+        private boolean MVCC;
         private boolean networkInfo;
         private double schedulePortion;
         private int messageTableUpdateThreshold;
@@ -230,6 +237,11 @@ public class AsyncConfig {
 
         public Builder setEngineType(EngineType engineType) {
             this.engineType = engineType;
+            return this;
+        }
+
+        public Builder setMVCC(boolean MVCC) {
+            this.MVCC = MVCC;
             return this;
         }
 
@@ -294,6 +306,7 @@ public class AsyncConfig {
             asyncConfig.schedulePortion = schedulePortion;
             asyncConfig.priorityType = priorityType;
             asyncConfig.dynamic = dynamic;
+            asyncConfig.MVCC = MVCC;
             asyncConfig.networkInfo = networkInfo;
             asyncConfig.debugging = debugging;
             asyncConfig.threadNum = threadNum;
@@ -306,7 +319,9 @@ public class AsyncConfig {
             if (AsyncConfig.asyncConfig != null)
                 throw new SociaLiteException("AsyncConfig already built");
             if (engineType != EngineType.ASYNC && priorityType != PriorityType.NONE)
-                throw new SociaLiteException("can not use priority with sync/semi-async mode");
+                throw new SociaLiteException("CAN NOTE USE Priority with Sync/Semi-Async Mode");
+            if (engineType != EngineType.ASYNC && MVCC)
+                throw new SociaLiteException("CAN NOTE USE MVCC with Sync/Semi-Async Mode");
             AsyncConfig.asyncConfig = asyncConfig;
             return asyncConfig;
         }
@@ -386,7 +401,7 @@ public class AsyncConfig {
                         asyncConfig.setPriorityType(PriorityType.NONE);
                     else if (val.equals("LOCAL"))
                         asyncConfig.setPriorityType(PriorityType.LOCAL);
-                    else if(val.equals("GLOBAL"))
+                    else if (val.equals("GLOBAL"))
                         asyncConfig.setPriorityType(PriorityType.GLOBAL);
                     else throw new SociaLiteException("unknown val: " + val);
                     break;
@@ -395,6 +410,13 @@ public class AsyncConfig {
                         asyncConfig.setNetworkInfo(true);
                     else if (val.equals("FALSE"))
                         asyncConfig.setNetworkInfo(false);
+                    else throw new SociaLiteException("unknown val: " + val);
+                    break;
+                case "MVCC":
+                    if (val.equals("TRUE"))
+                        asyncConfig.setMVCC(true);
+                    else if (val.equals("FALSE"))
+                        asyncConfig.setMVCC(false);
                     else throw new SociaLiteException("unknown val: " + val);
                     break;
                 case "ENGINE_TYPE":

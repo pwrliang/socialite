@@ -59,6 +59,7 @@ public class AsyncCodeGen {
         st.add("weightType", asyncAn.getWeightType());
         st.add("extraType", asyncAn.getExtraType());
         st.add("expr", asyncAn.getsExpr());
+        st.add("MVCC", asyncConfig.isMVCC());
         st.add("sync", asyncConfig.getEngineType() == AsyncConfig.EngineType.SYNC);
         return st.render();
     }

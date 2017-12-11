@@ -1,9 +1,7 @@
 package socialite.async.codegen;
 
 
-import org.apache.commons.lang3.time.StopWatch;
 import socialite.async.AsyncConfig;
-import socialite.async.dist.worker.DistAsyncRuntime;
 import socialite.async.util.SerializeTool;
 import socialite.resource.DistTablePartitionMap;
 import socialite.visitors.VisitorImpl;
@@ -16,9 +14,9 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 public abstract class BaseDistAsyncTable extends BaseAsyncTable {
-    private final AtomicIntegerArray messageTableSelector;
-    private final MessageTableBase[][] messageTableList;
-    private final MessageTableBase[] messageTableList1;
+    private AtomicIntegerArray messageTableSelector;
+    private MessageTableBase[][] messageTableListPair;
+    private MessageTableBase[] messageTableList;
 
     protected final int workerNum;
     protected final int myWorkerId;
@@ -36,72 +34,71 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
         this.messageTableUpdateThreshold = AsyncConfig.get().getMessageTableUpdateThreshold();
         this.initSize = AsyncConfig.get().getInitSize();
 
+        if (AsyncConfig.get().isMVCC()) {
+            messageTableSelector = new AtomicIntegerArray(workerNum);
+            messageTableListPair = new MessageTableBase[workerNum][2];
+            try {
+                Constructor constructor = messageTableClass.getConstructor();
 
-        messageTableSelector = new AtomicIntegerArray(workerNum);
-        messageTableList = new MessageTableBase[workerNum][2];
-        try {
-            Constructor constructor = messageTableClass.getConstructor();
-
-            for (int wid = 0; wid < workerNum; wid++) {
-                if (wid == myWorkerId) continue;//for worker i, it have 0,1,...,i-1,null,i+1,...n-1 buffer table
-                messageTableList[wid][0] = (MessageTableBase) constructor.newInstance();
-                messageTableList[wid][1] = (MessageTableBase) constructor.newInstance();
+                for (int wid = 0; wid < workerNum; wid++) {
+                    if (wid == myWorkerId) continue;//for worker i, it have 0,1,...,i-1,null,i+1,...n-1 buffer table
+                    messageTableListPair[wid][0] = (MessageTableBase) constructor.newInstance();
+                    messageTableListPair[wid][1] = (MessageTableBase) constructor.newInstance();
+                }
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                e.printStackTrace();
             }
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-            e.printStackTrace();
-        }
-        messageTableList1 = new MessageTableBase[workerNum];
-        try {
-            Constructor constructor = messageTableClass.getConstructor();
+        } else {
+            messageTableList = new MessageTableBase[workerNum];
+            try {
+                Constructor constructor = messageTableClass.getConstructor();
 
-            for (int wid = 0; wid < workerNum; wid++) {
-                if (wid == myWorkerId) continue;//for worker i, it have 0,1,...,i-1,null,i+1,...n-1 buffer table
-                messageTableList1[wid] = (MessageTableBase) constructor.newInstance();
+                for (int wid = 0; wid < workerNum; wid++) {
+                    if (wid == myWorkerId) continue;//for worker i, it have 0,1,...,i-1,null,i+1,...n-1 buffer table
+                    messageTableList[wid] = (MessageTableBase) constructor.newInstance();
+                }
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                e.printStackTrace();
             }
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-            e.printStackTrace();
         }
     }
 
+    public MessageTableBase[][] getMessageTableListPair() {
+        return messageTableListPair;
+    }
+
     public MessageTableBase[] getMessageTableList() {
-        return messageTableList1;
+        return messageTableList;
     }
 
 
     public MessageTableBase getWritableMessageTable(int workerId) {
-        return messageTableList[workerId][messageTableSelector.get(workerId)];
-//        return messageTableList1[workerId];
+        if (AsyncConfig.get().isMVCC())
+            return messageTableListPair[workerId][messageTableSelector.get(workerId)];
+        else
+            return messageTableList[workerId];
     }
 
 
     public ByteBuffer getSendableMessageTableByteBuffer(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
-//        MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
-        MessageTableBase sendableMessageTable = messageTableList1[sendToWorkerId];
+        MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId];
         long startTime = System.currentTimeMillis();
         //in sync mode, all computing thread write to message table when barrier is triggered, so we don't have to wait
         if (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC) {
             while (sendableMessageTable.size() < messageTableUpdateThreshold) {
                 Thread.sleep(1);
-                if (sendableMessageTable.accumulate() > 0.1)
-                    break;
                 if ((System.currentTimeMillis() - startTime) >= AsyncConfig.get().getMessageTableWaitingInterval())
                     break;
             }
         }
         // sleep to ensure switched, this is important
         // even though selector is atomic type, but computing thread cannot see the switched result immediately, i don't know why :(
-        StopWatch stopWatch = new StopWatch();
-        stopWatch.reset();
-        stopWatch.start();
 //        System.out.println(sendableMessageTable.size());
         ByteBuffer buffer;
         synchronized (sendableMessageTable) {
-            buffer = serializeTool.toByteBuffer(2048 + sendableMessageTable.size() * (8 + 8), sendableMessageTable);
+            buffer = serializeTool.toByteBuffer(4096 + sendableMessageTable.size() * (8 + 8), sendableMessageTable);
             sendableMessageTable.resetDelta();
         }
-        stopWatch.stop();
-        DistAsyncRuntime.getInst().serialize.addAndGet((int) stopWatch.getTime());
-//        System.out.println("serial time " + stopWatch.getTime());
         return buffer;
     }
 
@@ -115,21 +112,17 @@ public abstract class BaseDistAsyncTable extends BaseAsyncTable {
      */
     @Deprecated
     public ByteBuffer getSendableMessageTableByteBufferMVCC(int sendToWorkerId, SerializeTool serializeTool) throws InterruptedException {
-        int writingTableInd;
-        writingTableInd = messageTableSelector.get(sendToWorkerId);//获取计算线程正在写入的表序号
-        MessageTableBase sendableMessageTable = messageTableList[sendToWorkerId][writingTableInd];
+        int writingTableInd = messageTableSelector.get(sendToWorkerId);//获取计算线程正在写入的表序号
+        MessageTableBase sendableMessageTable = messageTableListPair[sendToWorkerId][writingTableInd];
         long startTime = System.currentTimeMillis();
         //in sync mode, all computing thread write to message table when barrier is triggered, so we don't have to wait
         if (AsyncConfig.get().getEngineType() == AsyncConfig.EngineType.ASYNC) {
             while (sendableMessageTable.size() < messageTableUpdateThreshold) {
-//            Thread.sleep(1);
-                if (sendableMessageTable.accumulate() > 0.1)
-                    break;
+                Thread.sleep(1);
                 if ((System.currentTimeMillis() - startTime) >= AsyncConfig.get().getMessageTableWaitingInterval())
                     break;
             }
         }
-        swtichTimes.addAndGet(1);
         messageTableSelector.set(sendToWorkerId, writingTableInd == 0 ? 1 : 0);
         // sleep to ensure switched, this is important
         // even though selector is atomic type, but computing thread cannot see the switched result immediately, i don't know why :(

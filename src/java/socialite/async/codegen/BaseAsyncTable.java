@@ -21,8 +21,6 @@ public abstract class BaseAsyncTable {
         throw new NotImplementedException();
     }
 
-    public AtomicInteger swtichTimes = new AtomicInteger();
-
     public abstract double getPriority(int localInd);
 
     public abstract double accumulateValue();
