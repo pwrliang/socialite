@@ -76,7 +76,7 @@ class RangePartitionNodeMap extends PartitionNodeMap {
     void initMapping(int nodeNum) {
         int[] map = map();
         int nodeid = 0;
-        for (int i = 0; i < map.length; i++) {
+        for (int i = 0; i < map.length; i++) {//equals with above initMapping
             map[i] = nodeid++;
             if (nodeid >= nodeNum) {
                 nodeid = 0;

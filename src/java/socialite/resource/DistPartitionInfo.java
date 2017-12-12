@@ -2,11 +2,9 @@ package socialite.resource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import socialite.dist.master.MasterNode;
 import socialite.parser.ArrayTable;
 import socialite.parser.GeneratedT;
 import socialite.parser.Table;
-import socialite.test.TestSocialite;
 import socialite.util.BitUtils;
 import socialite.util.HashCode;
 import socialite.yarn.ClusterConf;
@@ -279,3 +277,122 @@ class DistHashPartitionInfo implements PartitionInfo {
         return true;
     }
 }
+
+//class DistHashPartitionInfo1 implements PartitionInfo {
+//    Table t;
+//    DistTablePartitionMap map;
+//    final int partitionNum;
+//    final PartitionNodeMap partitionNodeMap;
+//
+//    final int myIndex;
+//
+//    DistHashPartitionInfo1(DistTablePartitionMap _map, Table _t) {
+//        map = _map;
+//        t = _t;
+//
+//        myIndex = map.addrMap.myIndex();
+//
+//        int totalPartitionNum = ClusterConf.get().getMaxNumWorkers() * map.defaultPartitionNum;
+//        assert BitUtils.isPowerOf2(totalPartitionNum);
+//
+//        partitionNum = computePartitionNum(t);
+//        int nodeNum = ClusterConf.get().getNumWorkers();
+//        partitionNodeMap = PartitionNodeMap.create(nodeNum, totalPartitionNum);
+//    }
+//
+//    int computePartitionNum(Table t) {
+//        if (t instanceof GeneratedT) {
+//            return 1;
+//        } else {
+//            int totalPartitionNum = map.defaultPartitionNum * ClusterConf.get().getMaxNumWorkers();
+//            assert BitUtils.isPowerOf2(totalPartitionNum);
+//            return totalPartitionNum;
+//        }
+//    }
+//
+//    public boolean isLocal(int hash) {
+//        assert !(t instanceof GeneratedT);
+//        return machineIndexForHash(hash) == myIndex;
+//    }
+//
+//    public int partitionNum() {
+//        return partitionNum;
+//    }
+//
+//    public int getHashIndex(int hash) {
+//        if (hash < 0) {
+//            hash = -hash;
+//            if (hash == Integer.MIN_VALUE) {
+//                hash = 0;
+//            }
+//        }
+//        return hash % partitionNum;
+//    }
+//
+//    public int getIndex(Object o) {
+//        return getHashIndex(o.hashCode());
+//    }
+//
+//    public int getIndex(int val) {
+//        return getHashIndex(val);
+//    }
+//
+//    public int getIndex(long val) {
+//        return getHashIndex(Long.hashCode(val));
+//    }
+//
+//    public int machineIndexFor(Object o) {
+//        int hashVal = HashCode.get(o);
+//        return machineIndexForHash(hashVal);
+//    }
+//
+//    public int machineIndexFor(int i) {
+//        int hashVal = HashCode.get(i);
+//        return machineIndexForHash(hashVal);
+//    }
+//
+//    public int machineIndexFor(long l) {
+//        int hashVal = HashCode.get(l);
+//        return machineIndexForHash(hashVal);
+//    }
+//
+//    public int machineIndexFor(float f) {
+//        int hashVal = HashCode.get(f);
+//        return machineIndexForHash(hashVal);
+//    }
+//
+//    public int machineIndexFor(double d) {
+//        int hashVal = HashCode.get(d);
+//        return machineIndexForHash(hashVal);
+//    }
+//
+//    public int machineIndexForHash(int hash) {
+//        if (hash < 0) {
+//            hash = -hash;
+//            if (hash == Integer.MIN_VALUE) {
+//                hash = 0;
+//            }
+//        }
+//        return hash % ClusterConf.get().getNumWorkers();
+//    }
+//
+//    public int partitionBegin(int partitionIdx) {
+//        throw new UnsupportedOperationException();
+//    }
+//
+//    public int partitionSize(int partitionSize) {
+//        throw new UnsupportedOperationException();
+//    }
+//
+//    public int[] getRange(int partitionIdx) {
+//        throw new UnsupportedOperationException();
+//    }
+//
+//    public int getRangeIndex(int range) {
+//        throw new UnsupportedOperationException();
+//    }
+//
+//    public boolean isValidRange(int range) {
+//        return true;
+//    }
+//}

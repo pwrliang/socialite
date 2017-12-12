@@ -89,3 +89,57 @@ class HashPartitionInfo implements PartitionInfo {
 
     public boolean isValidRange(int range) { return true; }
 }
+
+//class HashPartitionInfo1 implements PartitionInfo {
+//    Table t;
+//    TablePartitionMap map;
+//    final int partitionNum;
+//
+//    HashPartitionInfo1(TablePartitionMap _map, Table _t) {
+//        map = _map;
+//        t = _t;
+//        partitionNum = computePartitionNum(t);
+//    }
+//    int computePartitionNum(Table t) {
+//        if (t instanceof GeneratedT) {
+//            return 1;
+//        } else {
+//            assert BitUtils.isPowerOf2(map.defaultPartitionNum);
+//            return map.defaultPartitionNum;
+//        }
+//    }
+//
+//    public int partitionNum() { return partitionNum; }
+//
+//    public boolean isLocal(int hash) { return true; }
+//
+//    public int getIndex(Object o) {
+//        return getHashIndex(o.hashCode());
+//    }
+//    public int getIndex(int val) {
+//        return getHashIndex(val);
+//    }
+//    public int getIndex(long val) {
+//        return getHashIndex((int)val);
+//    }
+//    public int getHashIndex(int hash) {
+//        if (hash < 0) {
+//            hash = -hash;
+//            if (hash == Integer.MIN_VALUE) { hash = 0; }
+//        }
+//        return hash % partitionNum;
+//    }
+//
+//    public int partitionBegin(int partitionIdx) { throw new UnsupportedOperationException(); }
+//    public int partitionSize(int partitionSize) { throw new UnsupportedOperationException(); }
+//    public int[] getRange(int partitionIdx) { throw new UnsupportedOperationException(); }
+//    public int getRangeIndex(int range) { throw new UnsupportedOperationException(); }
+//
+//    public int machineIndexFor(Object o) { throw new UnsupportedOperationException(); }
+//    public int machineIndexFor(int i) { throw new UnsupportedOperationException(); }
+//    public int machineIndexFor(long l) { throw new UnsupportedOperationException(); }
+//    public int machineIndexFor(float f) { throw new UnsupportedOperationException(); }
+//    public int machineIndexFor(double d) { throw new UnsupportedOperationException(); }
+//
+//    public boolean isValidRange(int range) { return true; }
+//}
