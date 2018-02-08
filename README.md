@@ -12,7 +12,9 @@ Its integration with Python makes it convenient to implement graph mining algori
 Interested? [Read the quick tutorial](http://socialite-lang.github.io/pages/quick_start)
 
 **Guide**
+
 run pagerank in IDE
+
 1.launch Intellij Idea
 
 2.open the project 'socialite'
