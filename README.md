@@ -14,8 +14,11 @@ Interested? [Read the quick tutorial](http://socialite-lang.github.io/pages/quic
 **Guide**
 run pagerank in IDE
 1.launch Intellij Idea
+
 2.open the project 'socialite'
+
 3.for running the pagerank, locate the file '[project path]/examples/prog2.dl', correct the path for 'edge' and 'node'
+
 4.click on the menu "Run" - "Edit Configurations", type in Main class "socialite.async.SharedMemEntry", VM options -Dlog4j.configuration=file:/home/liang/socialite/conf/log4j.properties and program arguments "/home/liang/socialite/examples/prog2.dl"
 
 There is a mistake in prog2.dl, you should change the line 5 to "PRIORITY_TYPE = LOCAL" and line 7 to 'ENGINE_TYPE = ASYNC', because I fogot to update the prog2.dl to new version, but you can reference the examples/PageRank/Google.dl, this file is correct.
