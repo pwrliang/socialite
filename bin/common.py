@@ -1,15 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 import os
 import re
 import socket
+import getpass
 
-SOCIALITE_PREFIX = os.getenv('SOCIALITE_PREFIX')
-JAVA_HOME = os.getenv('JAVA_HOME')
-MPI_HOME = os.getenv("MPI_HOME")
-# SOCIALITE_PREFIX = '/home/gongsf/socialite'
-# JAVA_HOME = '/home/gongsf/jdk1.8.0_144'
-# MPI_HOME = '/home/gongsf/openmpi-2.1.2'
+USER_NAME = getpass.getuser()
+# SOCIALITE_PREFIX = os.getenv('SOCIALITE_PREFIX')
+# JAVA_HOME = os.getenv('JAVA_HOME')
+# MPI_HOME = os.getenv("MPI_HOME")
+SOCIALITE_PREFIX = '/home/gengl/socialite'
+JAVA_HOME = '/home/gengl/jdk1.8.0_144'
+MPI_HOME = '/home/gengl/openmpi-2.1.2'
 
 MACHINE_FILE = SOCIALITE_PREFIX + '/conf/machines'
 CLASS_PATH_LIST = []
