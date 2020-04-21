@@ -8,4 +8,6 @@ jython/cachedir/
 gen_master/
 logs/
 socialite-all.jar
-.idea/*
+.idea/
+*.iml
+target/*
